@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f7f9;
+  --surface: #ffffff;
+  --border: #e6e8ec;
+  --text: #1a1d21;
+  --muted: #6b7280;
+  --brand: #ea7a3b;
+  --brand-soft: #fff1e8;
+  --credit: #15803d;
+  --credit-soft: #e8f6ed;
+  --debt: #dc2626;
+  --debt-soft: #fdeaea;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-credit: var(--credit);
+  --color-credit-soft: var(--credit-soft);
+  --color-debt: var(--debt);
+  --color-debt-soft: var(--debt-soft);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* room for the fixed bottom nav on every page */
+.app-shell {
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 84px;
+}
+
+input,
+select,
+button,
+textarea {
+  font: inherit;
+}
