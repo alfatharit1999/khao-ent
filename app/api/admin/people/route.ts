@@ -42,5 +42,13 @@ export async function POST(req: NextRequest) {
     return ok();
   }
 
+  if (action === "delete") {
+    if (!body.id) return fail("ไม่พบสมาชิก");
+    // Hard delete — cascades to this person's orders & credits.
+    const { error } = await supabase.from("people").delete().eq("id", body.id);
+    if (error) return fail(error.message, 500);
+    return ok();
+  }
+
   return fail("action ไม่ถูกต้อง");
 }

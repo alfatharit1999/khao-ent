@@ -261,6 +261,22 @@ function PeopleManager({
     }
   };
 
+  const remove = async (p: Person) => {
+    if (
+      !window.confirm(
+        `ลบ "${p.name}" ถาวร? ออเดอร์และเครดิตทั้งหมดของคนนี้จะถูกลบด้วย`,
+      )
+    )
+      return;
+    setErr(null);
+    try {
+      await adminFetch("/api/admin/people", { action: "delete", id: p.id });
+      await onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "ลบไม่สำเร็จ");
+    }
+  };
+
   return (
     <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
       <h2 className="text-sm font-semibold">จัดการสมาชิก</h2>
@@ -297,21 +313,32 @@ function PeopleManager({
             key={p.id}
             className="flex items-center justify-between py-2 text-sm"
           >
-            <span>
+            <span className={p.active ? "" : "text-muted line-through"}>
               {p.name}{" "}
-              <span className="text-xs text-muted">
+              <span className="text-xs text-muted no-underline">
                 {CATEGORY_SHORT[p.category]}
               </span>
             </span>
-            <button
-              onClick={() => toggle(p)}
-              className="rounded-full border border-border px-3 py-1 text-xs text-muted"
-            >
-              {p.active ? "ซ่อน" : "แสดง"}
-            </button>
+            <div className="flex shrink-0 gap-1.5">
+              <button
+                onClick={() => toggle(p)}
+                className="rounded-full border border-border px-3 py-1 text-xs text-muted"
+              >
+                {p.active ? "ซ่อน" : "แสดง"}
+              </button>
+              <button
+                onClick={() => remove(p)}
+                className="rounded-full border border-border px-3 py-1 text-xs text-debt"
+              >
+                ลบ
+              </button>
+            </div>
           </li>
         ))}
       </ul>
+      <p className="text-[11px] text-muted">
+        “ซ่อน” = พักไว้ไม่ให้เลือกสั่ง แต่เก็บประวัติ · “ลบ” = ลบถาวรพร้อมออเดอร์/เครดิตทั้งหมด
+      </p>
     </section>
   );
 }
