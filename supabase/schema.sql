@@ -109,6 +109,9 @@ alter table settings     enable row level security;
 
 -- Read access for everyone.
 create policy "read people"   on people       for select using (true);
+-- Anyone can add a new person (e.g. a visiting professor/fellow ordering in).
+-- Renaming / hiding / deleting people stays admin-only (service key).
+create policy "write people insert" on people for insert with check (true);
 create policy "read orders"   on orders       for select using (true);
 create policy "read credits"  on credits      for select using (true);
 create policy "read fund"     on fund_entries for select using (true);

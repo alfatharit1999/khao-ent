@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
+  createPerson,
   getBalances,
   getOrdersForDate,
   getPeople,
   getSettings,
   OrderWithPerson,
 } from "@/lib/queries";
-import type { Balance, Person } from "@/lib/types";
+import type { Balance, Category, Person } from "@/lib/types";
 import { baht, thaiDate, todayISO } from "@/lib/format";
 import { useMe } from "@/lib/useMe";
 import { PageHeader, SetupHint } from "./components/ui";
@@ -31,6 +32,15 @@ export default function Home() {
     setOrders(o);
     setBalances(b);
   }, [date]);
+
+  const handleCreate = useCallback(
+    async (name: string, category: Category) => {
+      const id = await createPerson(name, category);
+      setPeople(await getPeople());
+      setMe(id);
+    },
+    [setMe],
+  );
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -100,7 +110,7 @@ export default function Home() {
       {loading ? (
         <p className="p-8 text-center text-sm text-muted">กำลังโหลด…</p>
       ) : !mePerson ? (
-        <NamePicker people={people} onPick={setMe} />
+        <NamePicker people={people} onPick={setMe} onCreate={handleCreate} />
       ) : (
         <div className="space-y-4 p-4">
           <div

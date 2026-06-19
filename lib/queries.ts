@@ -21,6 +21,23 @@ export async function getPeople(): Promise<Person[]> {
   return data as Person[];
 }
 
+/**
+ * Public: add a new person (visiting professor/fellow, etc.) without a PIN.
+ * Returns the created person's id so the caller can auto-select them.
+ */
+export async function createPerson(
+  name: string,
+  category: Person["category"],
+): Promise<string> {
+  const { data, error } = await db()
+    .from("people")
+    .insert({ name: name.trim(), category, sort_order: 500 })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return (data as { id: string }).id;
+}
+
 /** All people incl. inactive — for the admin management list. */
 export async function getAllPeople(): Promise<Person[]> {
   const { data, error } = await db()
