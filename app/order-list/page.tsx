@@ -58,6 +58,10 @@ export default function OrderListPage() {
   const byLoc = (loc: LocKey) =>
     orders.filter((o) => (o.location ?? "ไม่ระบุ") === loc);
   const grand = orders.reduce((s, o) => s + Number(o.price), 0);
+  // What the fronter actually lays out (อ.ไพบูลย์'s food is covered by his deposit).
+  const grandExclProf = orders
+    .filter((o) => o.people?.category !== "professor")
+    .reduce((s, o) => s + Number(o.price), 0);
 
   const buildText = () => {
     const lines: string[] = [`🍚 ออเดอร์ข้าว ${thaiDate(date)}`];
@@ -161,7 +165,7 @@ export default function OrderListPage() {
               <FrontPanel
                 people={people}
                 date={date}
-                grand={grand}
+                grand={grandExclProf}
                 onDone={load}
               />
             </>
@@ -214,7 +218,8 @@ function FrontPanel({
       <div className="space-y-3 p-4">
           <p className="text-xs text-muted">
             คนที่สำรองจ่ายค่าข้าวที่ห้อง treatment จะได้เครดิตคืนเท่ายอดที่จ่าย
-            (ไม่ต้องโอนเงินสด) — ค่าข้าวของตัวเองยังถูกหักตามปกติ
+            (ไม่ต้องโอนเงินสด) ยอดนี้<b>ไม่รวมข้าวอาจารย์</b> — และค่าข้าวของตัวเอง
+            จะถูกหักตามปกติ สรุปแล้วได้เครดิตเท่าที่ออกแทนคนอื่นเป๊ะ
           </p>
           <div>
             <label className="mb-1 block text-xs text-muted">ใครสำรองจ่าย</label>
@@ -233,7 +238,7 @@ function FrontPanel({
           </div>
           <div>
             <label className="mb-1 block text-xs text-muted">
-              ยอดที่สำรองจ่าย (บาท)
+              ยอดที่สำรองจ่าย (บาท) — ไม่รวมข้าวอาจารย์
             </label>
             <input
               value={amount}

@@ -226,10 +226,12 @@ function PeopleManager({
   const [name, setName] = useState("");
   const [category, setCategory] = useState<Category>("R2");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   const add = async () => {
     if (!name.trim()) return;
     setBusy(true);
+    setErr(null);
     try {
       await adminFetch("/api/admin/people", {
         action: "create",
@@ -237,21 +239,26 @@ function PeopleManager({
         category,
       });
       setName("");
-      onDone();
-    } catch {
-      /* ignore */
+      await onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "เพิ่มไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
   };
 
   const toggle = async (p: Person) => {
-    await adminFetch("/api/admin/people", {
-      action: "update",
-      id: p.id,
-      active: !p.active,
-    });
-    onDone();
+    setErr(null);
+    try {
+      await adminFetch("/api/admin/people", {
+        action: "update",
+        id: p.id,
+        active: !p.active,
+      });
+      await onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "อัปเดตไม่สำเร็จ");
+    }
   };
 
   return (
@@ -283,6 +290,7 @@ function PeopleManager({
           เพิ่ม
         </button>
       </div>
+      {err ? <p className="text-xs text-debt">{err}</p> : null}
       <ul className="divide-y divide-border">
         {people.map((p) => (
           <li

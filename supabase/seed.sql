@@ -23,6 +23,18 @@ insert into people (name, category, sort_order, note) values
   ('R2 ชมพู่',      'R2', 100, null),
   ('R2 ซีน',       'R2', 110, null),
   ('R2 เมาส์',      'R2', 120, null),
+  ('R3 ขวัญ',      'R3', 200, null),
+  ('R3 แพตตี้',     'R3', 210, null),
+  ('R3 ใหม่',      'R3', 220, null),
+  ('R3 อัฐ',       'R3', 230, null),
+  ('R3 ปิง',       'R3', 240, null),
+  ('R3 สรร',       'R3', 250, null),
+  ('R3 อิน',       'R3', 260, null),
+  ('R3 หนาว',      'R3', 270, null),
+  ('R3 ปีเตอร์',    'R3', 280, null),
+  ('R3 เบตตี้',     'R3', 290, null),
+  ('R3 ป๋วย',      'R3', 300, null),
+  ('R3 เบนซ์',     'R3', 310, null),
   ('อ.ไพบูลย์',     'professor', 900, 'ไม่กินเผ็ด / ไม่กินปลาหมึก — เมนูอัตโนมัติ (รอกำหนดเมนู)');
 
 -- ---- Reference settings (delivery + professor schedule) ------
