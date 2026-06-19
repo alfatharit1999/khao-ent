@@ -10,19 +10,19 @@
 truncate orders, credits, fund_entries, settings, people restart identity cascade;
 
 -- ---- People (everything starts at ฿0) -----------------------
-insert into people (name, kind, sort_order, note) values
-  ('R2 นิว',       'resident', 10,  null),
-  ('R2 ไอเดีย',     'resident', 20,  null),
-  ('R2 ฟ้า',       'resident', 30,  null),
-  ('R2 เพชร',      'resident', 40,  null),
-  ('R2 กล้วยไม้',   'resident', 50,  null),
-  ('R2 แว็ป',      'resident', 60,  null),
-  ('R2 โบ',        'resident', 70,  null),
-  ('R2 พีส',       'resident', 80,  null),
-  ('R2 ก้อง',      'resident', 90,  null),
-  ('R2 ชมพู่',      'resident', 100, null),
-  ('R2 ซีน',       'resident', 110, null),
-  ('R2 เมาส์',      'resident', 120, null),
+insert into people (name, category, sort_order, note) values
+  ('R2 นิว',       'R2', 10,  null),
+  ('R2 ไอเดีย',     'R2', 20,  null),
+  ('R2 ฟ้า',       'R2', 30,  null),
+  ('R2 เพชร',      'R2', 40,  null),
+  ('R2 กล้วยไม้',   'R2', 50,  null),
+  ('R2 แว็ป',      'R2', 60,  null),
+  ('R2 โบ',        'R2', 70,  null),
+  ('R2 พีส',       'R2', 80,  null),
+  ('R2 ก้อง',      'R2', 90,  null),
+  ('R2 ชมพู่',      'R2', 100, null),
+  ('R2 ซีน',       'R2', 110, null),
+  ('R2 เมาส์',      'R2', 120, null),
   ('อ.ไพบูลย์',     'professor', 900, 'ไม่กินเผ็ด / ไม่กินปลาหมึก — เมนูอัตโนมัติ (รอกำหนดเมนู)');
 
 -- ---- Reference settings (delivery + professor schedule) ------

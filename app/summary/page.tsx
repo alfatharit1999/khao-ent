@@ -5,13 +5,14 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import { getBalances, getSpendBetween } from "@/lib/queries";
 import type { Balance } from "@/lib/types";
 import { baht, weekRange } from "@/lib/format";
+import { CATEGORY_ORDER, CATEGORY_LABEL } from "@/lib/categories";
 import { PageHeader, SetupHint } from "../components/ui";
 
-const GROUP_LABEL: Record<Balance["kind"], string> = {
-  resident: "Resident ปี 1",
-  senior: "พี่ ๆ",
-  professor: "อาจารย์ (เงินฝากคงเหลือ)",
-};
+function groupLabel(cat: Balance["category"]): string {
+  return cat === "professor"
+    ? "อาจารย์ (เงินฝากคงเหลือ)"
+    : CATEGORY_LABEL[cat];
+}
 
 export default function SummaryPage() {
   const [balances, setBalances] = useState<Balance[]>([]);
@@ -48,7 +49,7 @@ export default function SummaryPage() {
   }
 
   // Professor sits in his own deposit world — exclude from group credit/debt totals.
-  const members = balances.filter((b) => b.kind !== "professor");
+  const members = balances.filter((b) => b.category !== "professor");
   const totalCredit = members
     .filter((b) => b.balance > 0)
     .reduce((s, b) => s + b.balance, 0);
@@ -56,7 +57,7 @@ export default function SummaryPage() {
     .filter((b) => b.balance < 0)
     .reduce((s, b) => s + b.balance, 0);
 
-  const groups: Balance["kind"][] = ["resident", "senior", "professor"];
+  const groups = CATEGORY_ORDER;
 
   return (
     <main>
@@ -82,12 +83,12 @@ export default function SummaryPage() {
           </div>
 
           {groups.map((g) => {
-            const list = balances.filter((b) => b.kind === g);
+            const list = balances.filter((b) => b.category === g);
             if (!list.length) return null;
             return (
               <div key={g}>
                 <div className="mb-2 px-1 text-xs font-medium text-muted">
-                  {GROUP_LABEL[g]}
+                  {groupLabel(g)}
                 </div>
                 <div className="overflow-hidden rounded-2xl border border-border bg-surface">
                   <ul className="divide-y divide-border">

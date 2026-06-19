@@ -11,12 +11,13 @@ drop table if exists fund_entries cascade;
 drop table if exists settings cascade;
 drop table if exists people cascade;
 
--- People: residents, ordering seniors, and the professor (อ.ไพบูลย์).
+-- People: residents (R1–R3), fellows (F1–F3), and the professor.
 create table people (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
-  kind        text not null check (kind in ('resident', 'senior', 'professor')),
-  sort_order  int  not null default 0,
+  category    text not null default 'R2'
+              check (category in ('R1', 'R2', 'R3', 'F1', 'F2', 'F3', 'professor')),
+  sort_order  int  not null default 500,
   active      boolean not null default true,
   note        text
 );
@@ -66,7 +67,7 @@ create table fund_entries (
 );
 create index fund_date_idx on fund_entries(date);
 
--- Free-form settings (week label, delivery notes, professor schedule …).
+-- Free-form settings (delivery notes, professor schedule …).
 create table settings (
   key   text primary key,
   value text
@@ -78,7 +79,7 @@ create view balances as
 select
   p.id                                                as person_id,
   p.name,
-  p.kind,
+  p.category,
   p.sort_order,
   coalesce(c.topups, 0)                               as topups,
   coalesce(o.spent, 0)                                as spent,
@@ -94,10 +95,11 @@ where p.active;
 
 -- ============================================================
 --  Row Level Security
---  Public (anon key) can READ everything and add/edit ORDERS only.
---  All money tables are read-only to anon; the app mutates them
---  through PIN-gated server routes that use the service-role key
---  (which bypasses RLS).
+--  Public (anon key) can READ everything, add/edit ORDERS, and
+--  add roll-over FRONT-CREDITS (the person fronting cash isn't the
+--  admin). All other money mutations (top-ups, adjustments, fund,
+--  people) go through PIN-gated server routes using the
+--  service-role key, which bypasses RLS.
 -- ============================================================
 alter table people       enable row level security;
 alter table orders       enable row level security;
@@ -106,16 +108,20 @@ alter table fund_entries enable row level security;
 alter table settings     enable row level security;
 
 -- Read access for everyone.
-create policy "read people"  on people       for select using (true);
-create policy "read orders"  on orders       for select using (true);
-create policy "read credits" on credits      for select using (true);
-create policy "read fund"    on fund_entries for select using (true);
-create policy "read settings" on settings    for select using (true);
+create policy "read people"   on people       for select using (true);
+create policy "read orders"   on orders       for select using (true);
+create policy "read credits"  on credits      for select using (true);
+create policy "read fund"     on fund_entries for select using (true);
+create policy "read settings" on settings     for select using (true);
 
 -- Anyone can place / change / remove an order (trusted group, name-pick).
 create policy "write orders insert" on orders for insert with check (true);
 create policy "write orders update" on orders for update using (true) with check (true);
 create policy "write orders delete" on orders for delete using (true);
+
+-- Anyone can record a roll-over (front credit) — but ONLY that type.
+-- Top-ups / adjustments / settlements remain admin-only (service key).
+create policy "write front credit" on credits for insert with check (type = 'front_credit');
 
 -- Expose the balances view to the public API.
 grant select on balances to anon, authenticated;

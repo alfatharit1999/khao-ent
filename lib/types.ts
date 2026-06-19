@@ -1,9 +1,9 @@
-export type PersonKind = "resident" | "senior" | "professor";
+export type Category = "R1" | "R2" | "R3" | "F1" | "F2" | "F3" | "professor";
 
 export type Person = {
   id: string;
   name: string;
-  kind: PersonKind;
+  category: Category;
   sort_order: number;
   active: boolean;
   note: string | null;
@@ -47,7 +47,7 @@ export type FundEntry = {
 export type Balance = {
   person_id: string;
   name: string;
-  kind: PersonKind;
+  category: Category;
   sort_order: number;
   topups: number; // sum of all credits
   spent: number; // sum of all order prices

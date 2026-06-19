@@ -3,16 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
+  addFrontCredit,
   getOrdersForDate,
   getPeople,
   getSettings,
   OrderWithPerson,
 } from "@/lib/queries";
 import type { Person } from "@/lib/types";
-import { adminFetch } from "@/lib/adminClient";
 import { baht, thaiDate, todayISO } from "@/lib/format";
 import { PageHeader, SetupHint } from "../components/ui";
-import { AdminGate } from "../components/AdminGate";
 
 type LocKey = "OR" | "OPD" | "ไม่ระบุ";
 const LOC_ORDER: LocKey[] = ["OR", "OPD", "ไม่ระบุ"];
@@ -212,8 +211,7 @@ function FrontPanel({
           ปิด
         </button>
       </div>
-      <AdminGate>
-        <div className="space-y-3 p-4">
+      <div className="space-y-3 p-4">
           <p className="text-xs text-muted">
             คนที่สำรองจ่ายค่าข้าวที่ห้อง treatment จะได้เครดิตคืนเท่ายอดที่จ่าย
             (ไม่ต้องโอนเงินสด) — ค่าข้าวของตัวเองยังถูกหักตามปกติ
@@ -253,11 +251,7 @@ function FrontPanel({
               setErr(null);
               setMsg(null);
               try {
-                await adminFetch("/api/admin/front", {
-                  person_id: personId,
-                  amount: Number(amount),
-                  date,
-                });
+                await addFrontCredit(personId, Number(amount), date);
                 setMsg("บันทึกแล้ว — โรลเข้าเครดิตเรียบร้อย");
                 setPersonId("");
                 onDone();
@@ -271,8 +265,7 @@ function FrontPanel({
           >
             บันทึก & โรลเข้าเครดิต
           </button>
-        </div>
-      </AdminGate>
+      </div>
     </div>
   );
 }

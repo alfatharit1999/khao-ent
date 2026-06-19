@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { guardAdmin, ok, fail } from "@/lib/adminRoute";
 
-const KINDS = ["resident", "senior", "professor"];
+const CATEGORIES = ["R1", "R2", "R3", "F1", "F2", "F3", "professor"];
 
 /** Create / update / toggle a person. */
 export async function POST(req: NextRequest) {
@@ -15,10 +15,10 @@ export async function POST(req: NextRequest) {
 
   if (action === "create") {
     if (!body.name?.trim()) return fail("ใส่ชื่อก่อน");
-    if (!KINDS.includes(body.kind)) return fail("ประเภทไม่ถูกต้อง");
+    if (!CATEGORIES.includes(body.category)) return fail("ประเภทไม่ถูกต้อง");
     const { error } = await supabase.from("people").insert({
       name: body.name.trim(),
-      kind: body.kind,
+      category: body.category,
       sort_order: Number(body.sort_order) || 500,
       note: body.note ?? null,
     });
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (!body.id) return fail("ไม่พบสมาชิก");
     const patch: Record<string, unknown> = {};
     if (typeof body.name === "string") patch.name = body.name.trim();
-    if (KINDS.includes(body.kind)) patch.kind = body.kind;
+    if (CATEGORIES.includes(body.category)) patch.category = body.category;
     if (body.sort_order != null) patch.sort_order = Number(body.sort_order);
     if (typeof body.active === "boolean") patch.active = body.active;
     if ("note" in body) patch.note = body.note ?? null;

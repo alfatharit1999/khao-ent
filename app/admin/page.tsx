@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getAllPeople, getBalances } from "@/lib/queries";
-import type { Balance, Person, PersonKind } from "@/lib/types";
+import type { Balance, Category, Person } from "@/lib/types";
 import { adminFetch, setPin } from "@/lib/adminClient";
+import { CATEGORY_ORDER, CATEGORY_LABEL, CATEGORY_SHORT } from "@/lib/categories";
 import { baht } from "@/lib/format";
 import { PageHeader, SetupHint } from "../components/ui";
 import { AdminGate } from "../components/AdminGate";
@@ -124,7 +125,7 @@ function CreditForm({
         {people.map((p) => (
           <option key={p.id} value={p.id}>
             {p.name}
-            {p.kind === "professor" ? " (อาจารย์)" : ""}
+            {p.category === "professor" ? " (อาจารย์)" : ""}
           </option>
         ))}
       </select>
@@ -215,12 +216,6 @@ function BalancesMini({ balances }: { balances: Balance[] }) {
   );
 }
 
-const KIND_LABEL: Record<PersonKind, string> = {
-  resident: "Resident",
-  senior: "พี่",
-  professor: "อาจารย์",
-};
-
 function PeopleManager({
   people,
   onDone,
@@ -229,14 +224,18 @@ function PeopleManager({
   onDone: () => void;
 }) {
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<PersonKind>("resident");
+  const [category, setCategory] = useState<Category>("R2");
   const [busy, setBusy] = useState(false);
 
   const add = async () => {
     if (!name.trim()) return;
     setBusy(true);
     try {
-      await adminFetch("/api/admin/people", { action: "create", name, kind });
+      await adminFetch("/api/admin/people", {
+        action: "create",
+        name,
+        category,
+      });
       setName("");
       onDone();
     } catch {
@@ -266,13 +265,15 @@ function PeopleManager({
           className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
         />
         <select
-          value={kind}
-          onChange={(e) => setKind(e.target.value as PersonKind)}
+          value={category}
+          onChange={(e) => setCategory(e.target.value as Category)}
           className="rounded-xl border border-border bg-background px-2 py-2 text-sm"
         >
-          <option value="resident">Resident</option>
-          <option value="senior">พี่</option>
-          <option value="professor">อาจารย์</option>
+          {CATEGORY_ORDER.map((c) => (
+            <option key={c} value={c}>
+              {CATEGORY_LABEL[c]}
+            </option>
+          ))}
         </select>
         <button
           onClick={add}
@@ -290,7 +291,9 @@ function PeopleManager({
           >
             <span>
               {p.name}{" "}
-              <span className="text-xs text-muted">{KIND_LABEL[p.kind]}</span>
+              <span className="text-xs text-muted">
+                {CATEGORY_SHORT[p.category]}
+              </span>
             </span>
             <button
               onClick={() => toggle(p)}

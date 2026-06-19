@@ -2,7 +2,7 @@ import { getSupabase } from "./supabase";
 import type { Balance, Order, Person, FundEntry, Setting } from "./types";
 
 export type OrderWithPerson = Order & {
-  people: { name: string; kind: Person["kind"]; sort_order: number } | null;
+  people: { name: string; category: Person["category"]; sort_order: number } | null;
 };
 
 function db() {
@@ -34,7 +34,7 @@ export async function getAllPeople(): Promise<Person[]> {
 export async function getOrdersForDate(date: string): Promise<OrderWithPerson[]> {
   const { data, error } = await db()
     .from("orders")
-    .select("*, people(name, kind, sort_order)")
+    .select("*, people(name, category, sort_order)")
     .eq("order_date", date);
   if (error) throw error;
   return (data as OrderWithPerson[]).sort(
@@ -91,6 +91,32 @@ export async function getSpendBetween(
     out[r.person_id] = (out[r.person_id] ?? 0) + Number(r.price);
   });
   return out;
+}
+
+/**
+ * Roll-over: person fronted cash at the treatment room for `date`.
+ * Public action (no admin PIN) — RLS allows inserting front_credit only.
+ * Credits them the amount laid out and flags that day's orders as fronted.
+ */
+export async function addFrontCredit(
+  person_id: string,
+  amount: number,
+  date: string,
+): Promise<void> {
+  const s = db();
+  const { error: cErr } = await s.from("credits").insert({
+    person_id,
+    date,
+    type: "front_credit",
+    amount,
+    note: `สำรองจ่ายค่าข้าว ${date}`,
+  });
+  if (cErr) throw cErr;
+  const { error: oErr } = await s
+    .from("orders")
+    .update({ fronted: true })
+    .eq("order_date", date);
+  if (oErr) throw oErr;
 }
 
 export async function getFundEntries(): Promise<FundEntry[]> {
