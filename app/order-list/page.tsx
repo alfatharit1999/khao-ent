@@ -3,19 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
-  addFrontCredit,
+  getClaimForDate,
   getDayState,
-  getFrontCreditForDate,
   getOrdersForDate,
   getPeople,
   getSettings,
   setProfessorMeal,
-  setSeal,
   skipProfessor,
-  updateOrderPrice,
   OrderWithPerson,
 } from "@/lib/queries";
-import type { DayState, Person } from "@/lib/types";
+import type { DayState, OrderClaim, Person } from "@/lib/types";
 import {
   PROFESSOR_MENU,
   PROFESSOR_BOX_NOTE,
@@ -28,6 +25,7 @@ import {
 } from "@/lib/professorMenu";
 import { baht, thaiDate, todayISO } from "@/lib/format";
 import { PageHeader, SetupHint } from "../components/ui";
+import { PriceRow } from "../components/PriceRow";
 
 type LocKey = "OR" | "OPD" | "ไม่ระบุ";
 const LOC_ORDER: LocKey[] = ["OR", "OPD", "ไม่ระบุ"];
@@ -38,19 +36,19 @@ export default function OrderListPage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [day, setDay] = useState<DayState>({ date, sealed: false, prof_status: null });
-  const [frontCredit, setFrontCredit] = useState<{ person_id: string; amount: number } | null>(null);
+  const [claim, setClaim] = useState<OrderClaim | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
-    const [o, d, fc] = await Promise.all([
+    const [o, d, c] = await Promise.all([
       getOrdersForDate(date),
       getDayState(date),
-      getFrontCreditForDate(date),
+      getClaimForDate(date),
     ]);
     setOrders(o);
     setDay(d);
-    setFrontCredit(fc);
+    setClaim(c);
   }, [date]);
 
   useEffect(() => {
@@ -79,6 +77,9 @@ export default function OrderListPage() {
     );
   }
 
+  // Once the claim is submitted, prices + professor are frozen.
+  const locked = claim?.status === "pending" || claim?.status === "approved";
+
   const professor = people.find((p) => p.category === "professor") ?? null;
   const profOrder = professor
     ? orders.find((o) => o.person_id === professor.id)
@@ -90,12 +91,6 @@ export default function OrderListPage() {
   const byLoc = (loc: LocKey) =>
     residentOrders.filter((o) => (o.location ?? "ไม่ระบุ") === loc);
   const grand = orders.reduce((s, o) => s + Number(o.price ?? 0), 0);
-  const grandExclProf = residentOrders.reduce(
-    (s, o) => s + Number(o.price ?? 0),
-    0,
-  );
-
-  // Prices the orderer still has to fill in after the restaurant bill arrives.
   const pendingPrice = residentOrders.filter((o) => o.price == null);
   const allPriced = pendingPrice.length === 0;
 
@@ -122,14 +117,13 @@ export default function OrderListPage() {
       );
     });
 
-    // Professor — special handling.
     lines.push("");
     lines.push(`⭐ อ.ไพบูลย์ — ${PROFESSOR_BOX_NOTE} (${PROFESSOR_RESTRICTIONS})`);
     if (day.prof_status === "skip" || !profOrder) {
       lines.push("  วันนี้ไม่สั่ง");
     } else {
       const unit =
-        Number(profOrder.price) / (profOrder.location === "BOTH" ? 2 : 1);
+        Number(profOrder.price ?? 0) / (profOrder.location === "BOTH" ? 2 : 1);
       if (profOrder.location === "OR" || profOrder.location === "BOTH")
         lines.push(`  • OR: ${profOrder.menu_item} (${unit})`);
       if (profOrder.location === "OPD" || profOrder.location === "BOTH")
@@ -137,7 +131,7 @@ export default function OrderListPage() {
     }
 
     lines.push("");
-    lines.push(`รวม ${totalBoxes} กล่อง = ${baht(grand)}`);
+    lines.push(`รวม ${totalBoxes} กล่อง`);
     return lines.join("\n");
   };
 
@@ -151,19 +145,15 @@ export default function OrderListPage() {
     }
   };
 
-  // All resident prices filled + professor confirmed + fronter recorded → seal.
-  const canSeal =
-    allPriced && day.prof_status !== null && frontCredit !== null;
-  const toggleSeal = async () => {
-    await setSeal(date, !day.sealed);
-    await load();
-  };
+  // The menu can be sent to the restaurant as soon as the professor is settled —
+  // prices come back from the restaurant afterwards, so they don't gate copying.
+  const canCopy = day.prof_status !== null;
 
   return (
     <main>
       <PageHeader
         title="รวมออเดอร์"
-        subtitle="รายการที่ต้องสั่งร้าน แยกตาม OR / OPD"
+        subtitle="ส่งเมนูให้ร้าน → ใส่ราคาทีหลัง → เคลมที่แท็บ “เคลม”"
         right={
           <input
             type="date"
@@ -184,6 +174,7 @@ export default function OrderListPage() {
               date={date}
               existing={profOrder}
               day={day}
+              locked={locked}
               onChanged={load}
             />
           ) : null}
@@ -212,7 +203,7 @@ export default function OrderListPage() {
                         key={o.id}
                         order={o}
                         date={date}
-                        sealed={day.sealed}
+                        locked={locked}
                         onSaved={load}
                       />
                     ))}
@@ -223,146 +214,43 @@ export default function OrderListPage() {
           )}
 
           {!allPriced ? (
-            <p className="rounded-xl bg-debt-soft px-3 py-2 text-xs text-debt">
-              ⏳ ยังมี {pendingPrice.length} เมนูที่ไม่มีราคา — หลังร้านคิดเงิน
-              ใส่ราคาให้แต่ละคนก่อน (แตะที่ &quot;ใส่ราคา&quot;) ถึงจะปิดออเดอร์ได้
+            <p className="rounded-xl bg-background px-3 py-2 text-xs text-muted">
+              ℹ️ {pendingPrice.length} เมนูยังไม่มีราคา — ส่งร้านได้เลย
+              ไว้ร้านคิดเงินแล้วค่อยมาใส่ราคา (แตะ &quot;ใส่ราคา&quot;) ก่อนไปเคลม
             </p>
           ) : null}
 
           <div className="flex items-center justify-between rounded-2xl bg-brand-soft px-4 py-3">
             <span className="text-sm font-medium">รวม {totalBoxes} กล่อง</span>
-            <span className="text-lg font-bold text-brand">{baht(grand)}</span>
+            <span className="text-lg font-bold text-brand">
+              {allPriced ? baht(grand) : `${baht(grand)} (ยังไม่ครบ)`}
+            </span>
           </div>
 
-          <FrontPanel
-            people={people}
-            date={date}
-            grandExclProf={grandExclProf}
-            ownPrice={Object.fromEntries(
-              residentOrders.map((o) => [o.person_id, Number(o.price ?? 0)]),
-            )}
-            existing={frontCredit}
-            onDone={load}
-          />
+          <button
+            onClick={copy}
+            disabled={!canCopy}
+            className="w-full rounded-xl bg-brand px-3 py-3 text-sm font-semibold text-white active:scale-95 disabled:opacity-40"
+          >
+            {!canCopy
+              ? "⭐ ยืนยันข้าวอาจารย์ก่อนถึงจะคัดลอกได้"
+              : copied
+                ? "คัดลอกแล้ว ✓"
+                : "📋 คัดลอกเมนูส่งร้าน"}
+          </button>
 
-          {/* Seal gate */}
-          <div className="space-y-2 rounded-2xl border border-border bg-surface p-4">
-            {!allPriced ? (
-              <p className="text-xs text-debt">
-                ใส่ราคาให้ครบทุกเมนูก่อน ({pendingPrice.length} เมนูยังไม่มีราคา) ถึงจะปิดออเดอร์ได้
-              </p>
-            ) : day.prof_status === null ? (
-              <p className="text-xs text-debt">
-                ยืนยันสถานะข้าวอาจารย์ด้านบนก่อน (สั่ง หรือ ไม่สั่ง) ถึงจะปิดออเดอร์ได้
-              </p>
-            ) : !frontCredit ? (
-              <p className="text-xs text-debt">
-                ระบุผู้สำรองจ่ายด้านบนก่อนถึงจะปิดออเดอร์ได้
-              </p>
-            ) : null}
-            <button
-              onClick={toggleSeal}
-              disabled={!canSeal}
-              className="w-full rounded-xl px-3 py-3 text-sm font-semibold disabled:opacity-50"
-              style={{
-                background: day.sealed ? "var(--surface)" : "var(--credit)",
-                color: day.sealed ? "var(--muted)" : "#fff",
-                border: day.sealed ? "1px solid var(--border)" : "none",
-              }}
-            >
-              {day.sealed ? "🔓 แก้ไขออเดอร์ (ปลดล็อก)" : "🔒 ปิดออเดอร์ (Seal)"}
-            </button>
-
-            <button
-              onClick={copy}
-              disabled={!day.sealed}
-              className="w-full rounded-xl bg-brand px-3 py-3 text-sm font-semibold text-white active:scale-95 disabled:opacity-40"
-            >
-              {day.sealed ? (copied ? "คัดลอกแล้ว ✓" : "📋 คัดลอกรายการไปส่งร้าน") : "🔒 ปิดออเดอร์ก่อนถึงจะคัดลอกได้"}
-            </button>
-          </div>
+          {locked ? (
+            <p className="rounded-xl bg-credit-soft px-3 py-2 text-center text-xs text-credit">
+              🔒 เคลมแล้ว — ราคาถูกล็อก (ไปที่แท็บ “เคลม” เพื่อดูสถานะ)
+            </p>
+          ) : (
+            <p className="rounded-xl bg-background px-3 py-2 text-center text-xs text-muted">
+              ใส่ราคาครบแล้ว ไปที่แท็บ <b>เคลม</b> เพื่อโรลเครดิตเข้าคนสั่ง
+            </p>
+          )}
         </div>
       )}
     </main>
-  );
-}
-
-/** One resident's order row — the orderer taps to fill in the price. */
-function PriceRow({
-  order,
-  date,
-  sealed,
-  onSaved,
-}: {
-  order: OrderWithPerson;
-  date: string;
-  sealed: boolean;
-  onSaved: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(order.price != null ? String(order.price) : "");
-  const [busy, setBusy] = useState(false);
-
-  const save = async () => {
-    const trimmed = val.trim();
-    const price = trimmed === "" ? null : Number(trimmed);
-    if (price != null && (!Number.isFinite(price) || price < 0)) return;
-    setBusy(true);
-    try {
-      await updateOrderPrice(order.person_id, date, price);
-      setEditing(false);
-      onSaved();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <li className="flex items-center gap-3 px-4 py-2.5">
-      <span className="w-20 shrink-0 truncate text-sm font-medium">
-        {order.people?.name}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-sm text-muted">
-        {order.menu_item}
-      </span>
-      {sealed ? (
-        <span className="shrink-0 text-sm font-semibold">
-          {order.price != null ? baht(Number(order.price)) : "—"}
-        </span>
-      ) : editing ? (
-        <div className="flex shrink-0 items-center gap-1.5">
-          <input
-            value={val}
-            onChange={(e) => setVal(e.target.value.replace(/[^0-9.]/g, ""))}
-            inputMode="decimal"
-            autoFocus
-            placeholder="0"
-            className="w-16 rounded-lg border border-border bg-background px-2 py-1 text-sm"
-          />
-          <button
-            onClick={save}
-            disabled={busy}
-            className="rounded-lg bg-brand px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
-          >
-            ✓
-          </button>
-        </div>
-      ) : order.price != null ? (
-        <button
-          onClick={() => setEditing(true)}
-          className="shrink-0 text-sm font-semibold text-brand underline decoration-dotted"
-        >
-          {baht(Number(order.price))}
-        </button>
-      ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className="shrink-0 rounded-lg border border-debt/40 bg-debt-soft px-2 py-1 text-xs font-medium text-debt"
-        >
-          ใส่ราคา
-        </button>
-      )}
-    </li>
   );
 }
 
@@ -371,12 +259,14 @@ function ProfessorCard({
   date,
   existing,
   day,
+  locked,
   onChanged,
 }: {
   professorId: string;
   date: string;
   existing: OrderWithPerson | undefined;
   day: DayState;
+  locked: boolean;
   onChanged: () => void;
 }) {
   const hint = professorScheduleHint(date);
@@ -394,8 +284,8 @@ function ProfessorCard({
       setLocation((existing.location as ProfLocation) ?? "OR");
       setMenu(existing.menu_item ?? "");
       const unit =
-        Number(existing.price) / (existing.location === "BOTH" ? 2 : 1);
-      setPrice(String(unit));
+        Number(existing.price ?? 0) / (existing.location === "BOTH" ? 2 : 1);
+      setPrice(existing.price != null ? String(unit) : "");
     } else if (day.prof_status === "skip") {
       setMode("skip");
     } else {
@@ -451,8 +341,8 @@ function ProfessorCard({
 
   const total = (Number(price) || 0) * (location === "BOTH" ? 2 : 1);
 
-  // Read-only summary once the day is sealed.
-  if (day.sealed) {
+  // Read-only summary once the claim is locked.
+  if (locked) {
     return (
       <div className="rounded-2xl border border-border bg-surface p-4">
         <h3 className="mb-1 font-semibold">⭐ ข้าวอาจารย์ไพบูลย์</h3>
@@ -462,10 +352,12 @@ function ProfessorCard({
           <p className="text-sm">
             {existing.location === "BOTH" ? "OR + OPD" : existing.location} ·{" "}
             {existing.menu_item} —{" "}
-            <span className="font-semibold">{baht(Number(existing.price))}</span>
+            <span className="font-semibold">
+              {existing.price != null ? baht(Number(existing.price)) : "—"}
+            </span>
           </p>
         )}
-        <p className="mt-1 text-xs text-muted">ปิดออเดอร์แล้ว — ปลดล็อกด้านล่างเพื่อแก้</p>
+        <p className="mt-1 text-xs text-muted">เคลมแล้ว — แก้ไม่ได้</p>
       </div>
     );
   }
@@ -587,130 +479,6 @@ function ProfessorCard({
       <p className="text-[11px] text-muted">
         {OR_DELIVERY} · {OPD_DELIVERY}
       </p>
-    </div>
-  );
-}
-
-function FrontPanel({
-  people,
-  date,
-  grandExclProf,
-  ownPrice,
-  existing,
-  onDone,
-}: {
-  people: Person[];
-  date: string;
-  grandExclProf: number;
-  ownPrice: Record<string, number>;
-  existing: { person_id: string; amount: number } | null;
-  onDone: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [personId, setPersonId] = useState("");
-  const [amount, setAmount] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  // Default = others' meals only: everyone's order (minus professor) minus the
-  // selected fronter's own meal (their own is settled, not reimbursed).
-  const suggested = grandExclProf - (personId ? ownPrice[personId] ?? 0 : 0);
-  useEffect(() => {
-    setAmount(String(suggested));
-  }, [suggested]);
-
-  if (existing) {
-    const fronter = people.find((p) => p.id === existing.person_id);
-    return (
-      <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">💳 ผู้สำรองจ่ายวันนี้</h3>
-          <span className="rounded-full bg-credit-soft px-2 py-0.5 text-[10px] font-medium text-credit">
-            โรลเข้าเครดิตแล้ว ✓
-          </span>
-        </div>
-        <p className="mt-1 text-sm">
-          <span className="font-medium">{fronter?.name ?? "?"}</span>
-          {" — "}
-          <span className="font-semibold">{baht(existing.amount)}</span>
-        </p>
-      </div>
-    );
-  }
-
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full rounded-xl border-2 border-debt/40 bg-debt-soft px-3 py-3 text-sm font-semibold text-debt"
-      >
-        💳 ระบุผู้สำรองจ่ายวันนี้ก่อน (โรลเข้าเครดิต)
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold">บันทึกคนสำรองจ่าย</h3>
-        <button onClick={() => setOpen(false)} className="text-xs text-muted">
-          ปิด
-        </button>
-      </div>
-      <div className="space-y-3 p-4">
-        <p className="text-xs text-muted">
-          คนที่สำรองจ่ายจะได้เครดิตคืน<b>เฉพาะส่วนที่ออกแทนคนอื่น</b> (ไม่ต้องโอนเงินสด)
-          — ยอดนี้ตัด<b>ข้าวของตัวเอง</b>และ<b>ข้าวอาจารย์</b>ออกแล้ว
-          ข้าวของตัวเองถือว่าจ่ายเองไปแล้ว ไม่นับเป็นหนี้ซ้ำ
-        </p>
-        <div>
-          <label className="mb-1 block text-xs text-muted">ใครสำรองจ่าย</label>
-          <select
-            value={personId}
-            onChange={(e) => setPersonId(e.target.value)}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
-          >
-            <option value="">— เลือกชื่อ —</option>
-            {people
-              .filter((p) => p.category !== "professor")
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted">
-            ยอดเครดิตคืน (บาท) — ตัดข้าวตัวเอง + ข้าวอาจารย์แล้ว
-          </label>
-          <input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-            inputMode="decimal"
-            className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm"
-          />
-        </div>
-        {err ? <p className="text-xs text-debt">{err}</p> : null}
-        <button
-          disabled={busy || !personId}
-          onClick={async () => {
-            setBusy(true);
-            setErr(null);
-            try {
-              await addFrontCredit(personId, Number(amount), date);
-              onDone();
-            } catch (e) {
-              setErr(e instanceof Error ? e.message : "ผิดพลาด");
-            } finally {
-              setBusy(false);
-            }
-          }}
-          className="w-full rounded-xl bg-brand px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-        >
-          บันทึก & โรลเข้าเครดิต
-        </button>
-      </div>
     </div>
   );
 }

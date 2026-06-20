@@ -345,6 +345,131 @@ export async function reverseTopup(
   if (dErr) throw dErr;
 }
 
+// ---- Order claims (orderer claims back what they fronted) -----------------
+
+export async function getClaimForDate(
+  date: string,
+): Promise<import("./types").OrderClaim | null> {
+  const { data, error } = await db()
+    .from("order_claims")
+    .select("*")
+    .eq("date", date)
+    .maybeSingle();
+  if (error) throw error;
+  return data as import("./types").OrderClaim | null;
+}
+
+/** Orderer identifies themselves for the day (creates a draft claim). */
+export async function startClaim(
+  date: string,
+  orderer_id: string,
+): Promise<void> {
+  const { error } = await db()
+    .from("order_claims")
+    .insert({ date, orderer_id, status: "draft" });
+  if (error) throw error;
+}
+
+/** Undo a draft (e.g. wrong orderer picked) before it's submitted. */
+export async function cancelDraftClaim(id: string): Promise<void> {
+  const { error } = await db()
+    .from("order_claims")
+    .delete()
+    .eq("id", id)
+    .eq("status", "draft");
+  if (error) throw error;
+}
+
+/**
+ * Submit the claim: roll the credit to the orderer immediately. Marks the
+ * orderer's own meal as fronted (paid in cash, not a debt) and inserts a
+ * front_credit for what they paid for the other residents.
+ */
+export async function submitClaim(input: {
+  id: string;
+  orderer_id: string;
+  date: string;
+  total_paid: number | null;
+  rolled_amount: number;
+}): Promise<void> {
+  const s = db();
+  const { error: oErr } = await s
+    .from("orders")
+    .update({ fronted: true })
+    .eq("person_id", input.orderer_id)
+    .eq("order_date", input.date);
+  if (oErr) throw oErr;
+  const { error: cErr } = await s.from("credits").insert({
+    person_id: input.orderer_id,
+    date: input.date,
+    type: "front_credit",
+    amount: input.rolled_amount,
+    note: `เคลมค่าข้าว ${input.date} (ออกแทนคนอื่น)`,
+  });
+  if (cErr) throw cErr;
+  const { error: uErr } = await s
+    .from("order_claims")
+    .update({
+      status: "pending",
+      total_paid: input.total_paid,
+      rolled_amount: input.rolled_amount,
+    })
+    .eq("id", input.id);
+  if (uErr) throw uErr;
+}
+
+export async function getClaims(): Promise<
+  import("./types").OrderClaimWithPerson[]
+> {
+  const { data, error } = await db()
+    .from("order_claims")
+    .select("*, people(name)")
+    .neq("status", "draft")
+    .order("date", { ascending: false });
+  if (error) throw error;
+  return data as import("./types").OrderClaimWithPerson[];
+}
+
+export async function approveClaim(id: string): Promise<void> {
+  const { error } = await db()
+    .from("order_claims")
+    .update({ status: "approved", resolved_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Revert a claim: claw back the rolled credit (offsetting adjustment), un-front
+ * the orderer's own meal, and delete the claim so the day can be redone.
+ */
+export async function revertClaim(input: {
+  id: string;
+  orderer_id: string;
+  date: string;
+  rolled_amount: number;
+}): Promise<void> {
+  const s = db();
+  const { error: cErr } = await s.from("credits").insert({
+    person_id: input.orderer_id,
+    date: input.date,
+    type: "adjustment",
+    amount: -Math.abs(input.rolled_amount),
+    note: `ยกเลิกเคลมค่าข้าว ${input.date} (แอดมิน)`,
+  });
+  if (cErr) throw cErr;
+  const { error: oErr } = await s
+    .from("orders")
+    .update({ fronted: false })
+    .eq("person_id", input.orderer_id)
+    .eq("order_date", input.date);
+  if (oErr) throw oErr;
+  const { error: dErr } = await s
+    .from("order_claims")
+    .delete()
+    .eq("id", input.id);
+  if (dErr) throw dErr;
+}
+
 export async function getFrontCreditForDate(
   date: string,
 ): Promise<{ person_id: string; amount: number } | null> {

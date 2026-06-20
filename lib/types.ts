@@ -80,3 +80,20 @@ export type TopupRequest = {
 export type TopupRequestWithPerson = TopupRequest & {
   people: { name: string } | null;
 };
+
+export type OrderClaimStatus = "draft" | "pending" | "approved";
+
+export type OrderClaim = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  orderer_id: string;
+  total_paid: number | null;
+  rolled_amount: number | null;
+  status: OrderClaimStatus;
+  created_at: string;
+  resolved_at: string | null;
+};
+
+export type OrderClaimWithPerson = OrderClaim & {
+  people: { name: string } | null;
+};

@@ -6,19 +6,23 @@ import {
   getAllPeople,
   getBalances,
   getTopupRequests,
+  getClaims,
   addAdjustment,
   markTopupChecked,
   reverseTopup,
+  approveClaim,
+  revertClaim,
 } from "@/lib/queries";
 import type {
   Balance,
   Category,
   Person,
   TopupRequestWithPerson,
+  OrderClaimWithPerson,
 } from "@/lib/types";
 import { adminFetch, setPin } from "@/lib/adminClient";
 import { CATEGORY_ORDER, CATEGORY_LABEL, CATEGORY_SHORT } from "@/lib/categories";
-import { baht } from "@/lib/format";
+import { baht, thaiDate } from "@/lib/format";
 import { PageHeader, SetupHint } from "../components/ui";
 import { AdminGate } from "../components/AdminGate";
 
@@ -59,16 +63,19 @@ function AdminPanel() {
   const [people, setPeople] = useState<Person[]>([]);
   const [balances, setBalances] = useState<Balance[]>([]);
   const [topupReqs, setTopupReqs] = useState<TopupRequestWithPerson[]>([]);
+  const [claims, setClaims] = useState<OrderClaimWithPerson[]>([]);
 
   const load = useCallback(async () => {
-    const [p, b, t] = await Promise.all([
+    const [p, b, t, c] = await Promise.all([
       getAllPeople(),
       getBalances(),
       getTopupRequests(),
+      getClaims(),
     ]);
     setPeople(p);
     setBalances(b);
     setTopupReqs(t);
+    setClaims(c);
   }, []);
 
   useEffect(() => {
@@ -77,10 +84,131 @@ function AdminPanel() {
 
   return (
     <div className="space-y-5 p-4">
+      <ClaimRequests claims={claims} onDone={load} />
       <TopupRequests requests={topupReqs} onDone={load} />
       <BalanceEditor people={people} balances={balances} onDone={load} />
       <PeopleManager people={people} onDone={load} />
     </div>
+  );
+}
+
+function ClaimRequests({
+  claims,
+  onDone,
+}: {
+  claims: OrderClaimWithPerson[];
+  onDone: () => void;
+}) {
+  const pending = claims.filter((c) => c.status === "pending");
+  const approved = claims.filter((c) => c.status === "approved").slice(0, 6);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const approve = async (c: OrderClaimWithPerson) => {
+    setBusy(c.id + "ok");
+    setErr(null);
+    try {
+      await approveClaim(c.id);
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "ผิดพลาด");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const revert = async (c: OrderClaimWithPerson) => {
+    if (
+      !window.confirm(
+        `revert การเคลมของ ${c.people?.name ?? "?"} (${baht(Number(c.rolled_amount ?? 0))})? เครดิตที่โรลไปจะถูกหักคืน`,
+      )
+    )
+      return;
+    setBusy(c.id + "revert");
+    setErr(null);
+    try {
+      await revertClaim({
+        id: c.id,
+        orderer_id: c.orderer_id,
+        date: c.date,
+        rolled_amount: Number(c.rolled_amount ?? 0),
+      });
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "ผิดพลาด");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+      <h2 className="text-sm font-semibold">
+        เคลมเงินคนสั่ง
+        {pending.length > 0 && (
+          <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white">
+            {pending.length} รออนุมัติ
+          </span>
+        )}
+      </h2>
+      <p className="text-[11px] text-muted">
+        เครดิตโรลเข้าคนสั่งทันทีที่เคลม — กด &quot;อนุมัติ&quot; เพื่อยืนยัน หรือ
+        &quot;revert&quot; เพื่อหักคืน (เปิดวันให้เคลมใหม่)
+      </p>
+
+      {pending.length === 0 && approved.length === 0 ? (
+        <p className="text-xs text-muted">ยังไม่มีการเคลม</p>
+      ) : null}
+
+      {pending.map((c) => (
+        <div key={c.id} className="rounded-xl border border-border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">{c.people?.name ?? "?"}</span>
+            <span className="text-sm font-bold text-credit">
+              +{baht(Number(c.rolled_amount ?? 0))}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted">
+            {thaiDate(c.date)} · จ่ายร้านจริง{" "}
+            {c.total_paid != null ? baht(Number(c.total_paid)) : "—"}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => approve(c)}
+              disabled={busy === c.id + "ok"}
+              className="flex-1 rounded-xl bg-credit px-2 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              ✓ อนุมัติ
+            </button>
+            <button
+              onClick={() => revert(c)}
+              disabled={busy === c.id + "revert"}
+              className="rounded-xl border border-border px-3 py-2 text-xs text-debt disabled:opacity-50"
+            >
+              revert
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {err ? <p className="text-xs text-debt">{err}</p> : null}
+
+      {approved.length > 0 && (
+        <div>
+          <p className="mb-1 text-[11px] text-muted">อนุมัติแล้วล่าสุด</p>
+          <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+            {approved.map((c) => (
+              <li key={c.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                <span className="font-medium">{c.people?.name ?? "?"}</span>
+                <span>{thaiDate(c.date)}</span>
+                <span>+{baht(Number(c.rolled_amount ?? 0))}</span>
+                <span className="text-credit">อนุมัติ ✓</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
