@@ -76,19 +76,16 @@ function TopupRequests({
   requests: TopupRequestWithPerson[];
   onDone: () => void;
 }) {
-  const pending = requests.filter((r) => r.status === "pending");
-  const resolved = requests.filter((r) => r.status !== "pending").slice(0, 5);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editAmount, setEditAmount] = useState("");
+  const unverified = requests.filter((r) => r.status === "pending");
+  const verified = requests.filter((r) => r.status === "approved").slice(0, 8);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const act = async (action: "approve" | "reject", id: string, amount?: number) => {
+  const act = async (action: "check" | "delete", id: string) => {
     setBusy(id + action);
     setErr(null);
     try {
-      await adminFetch("/api/admin/topup-request", { action, id, amount });
-      setEditId(null);
+      await adminFetch("/api/admin/topup-request", { action, id });
       onDone();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "ผิดพลาด");
@@ -100,90 +97,62 @@ function TopupRequests({
   return (
     <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
       <h2 className="text-sm font-semibold">
-        คำขอเติมเครดิต
-        {pending.length > 0 && (
-          <span className="ml-2 rounded-full bg-debt px-2 py-0.5 text-[10px] font-bold text-white">
-            {pending.length} รอ
+        บันทึกเติมเครดิต
+        {unverified.length > 0 && (
+          <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-white">
+            {unverified.length} ยังไม่ตรวจ
           </span>
         )}
       </h2>
+      <p className="text-[11px] text-muted">
+        เครดิตเพิ่มทันทีเมื่อผู้ใช้กด — กด "ตรวจแล้ว" หลังเช็ค slip กับธนาคาร
+      </p>
 
-      {pending.length === 0 && resolved.length === 0 ? (
-        <p className="text-xs text-muted">ยังไม่มีคำขอ</p>
+      {unverified.length === 0 && verified.length === 0 ? (
+        <p className="text-xs text-muted">ยังไม่มีรายการ</p>
       ) : null}
 
-      {pending.map((r) => (
+      {/* Unverified — needs admin to cross-check with bank */}
+      {unverified.map((r) => (
         <div key={r.id} className="rounded-xl border border-border p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold">{r.people?.name ?? "?"}</span>
-            <span className="text-sm font-bold text-credit">฿{Number(r.amount).toFixed(0)}</span>
+            <span className="text-sm font-bold text-credit">+฿{Number(r.amount).toFixed(0)}</span>
           </div>
           <p className="text-[11px] text-muted">
             {new Date(r.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
           </p>
-
-          {editId === r.id ? (
-            <div className="space-y-2">
-              <input
-                value={editAmount}
-                onChange={(e) => setEditAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                inputMode="decimal"
-                placeholder={`ยอดเดิม ${Number(r.amount).toFixed(0)}`}
-                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-              />
-              <div className="flex gap-2">
-                <button
-                  onClick={() => act("approve", r.id, editAmount ? Number(editAmount) : undefined)}
-                  disabled={busy === r.id + "approve"}
-                  className="flex-1 rounded-xl bg-brand px-2 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  อนุมัติ {editAmount ? `฿${editAmount}` : ""}
-                </button>
-                <button onClick={() => setEditId(null)} className="rounded-xl border border-border px-3 py-2 text-xs text-muted">
-                  ยกเลิก
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                onClick={() => act("approve", r.id)}
-                disabled={busy === r.id + "approve"}
-                className="flex-1 rounded-xl bg-credit px-2 py-2 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                ✓ อนุมัติ
-              </button>
-              <button
-                onClick={() => { setEditId(r.id); setEditAmount(String(Number(r.amount))); }}
-                className="rounded-xl border border-border px-3 py-2 text-xs font-medium"
-              >
-                แก้ยอด
-              </button>
-              <button
-                onClick={() => act("reject", r.id)}
-                disabled={busy === r.id + "reject"}
-                className="rounded-xl border border-border px-3 py-2 text-xs text-debt disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </div>
-          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => act("check", r.id)}
+              disabled={busy === r.id + "check"}
+              className="flex-1 rounded-xl bg-credit px-2 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              ✓ ตรวจแล้ว
+            </button>
+            <button
+              onClick={() => act("delete", r.id)}
+              disabled={busy === r.id + "delete"}
+              className="rounded-xl border border-border px-3 py-2 text-xs text-debt disabled:opacity-50"
+            >
+              ลบ
+            </button>
+          </div>
         </div>
       ))}
 
       {err ? <p className="text-xs text-debt">{err}</p> : null}
 
-      {resolved.length > 0 && (
+      {/* Recently verified */}
+      {verified.length > 0 && (
         <div>
-          <p className="mb-1 text-[11px] text-muted">ล่าสุด (ดำเนินการแล้ว)</p>
+          <p className="mb-1 text-[11px] text-muted">ตรวจแล้วล่าสุด</p>
           <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden">
-            {resolved.map((r) => (
+            {verified.map((r) => (
               <li key={r.id} className="flex items-center justify-between px-3 py-2 text-xs">
                 <span className="font-medium">{r.people?.name ?? "?"}</span>
-                <span>฿{Number(r.amount).toFixed(0)}</span>
-                <span style={{ color: r.status === "approved" ? "var(--credit)" : "var(--debt)" }}>
-                  {r.status === "approved" ? "อนุมัติ ✓" : "ไม่อนุมัติ"}
-                </span>
+                <span>+฿{Number(r.amount).toFixed(0)}</span>
+                <span className="text-credit">ตรวจแล้ว ✓</span>
               </li>
             ))}
           </ul>

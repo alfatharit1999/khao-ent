@@ -8,39 +8,24 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null);
   if (!body) return fail("ข้อมูลไม่ถูกต้อง");
-  const { action, id, amount } = body;
+  const { action, id } = body;
 
-  if (action === "approve") {
-    const { data: row, error: rErr } = await supabase
-      .from("topup_requests")
-      .select("person_id, amount")
-      .eq("id", id)
-      .single();
-    if (rErr || !row) return fail("ไม่พบคำขอ");
-
-    const finalAmount =
-      amount != null && Number(amount) > 0 ? Number(amount) : Number(row.amount);
-
-    const { error: cErr } = await supabase.from("credits").insert({
-      person_id: row.person_id,
-      type: "topup",
-      amount: finalAmount,
-      note: `เติมเครดิต (อนุมัติจากคำขอ)`,
-    });
-    if (cErr) return fail(cErr.message, 500);
-
-    const { error: uErr } = await supabase
+  // Credit is already added at the time the user submits.
+  // "check" just marks the log entry as verified against the bank transfer.
+  if (action === "check") {
+    const { error } = await supabase
       .from("topup_requests")
       .update({ status: "approved", resolved_at: new Date().toISOString() })
       .eq("id", id);
-    if (uErr) return fail(uErr.message, 500);
+    if (error) return fail(error.message, 500);
     return ok();
   }
 
-  if (action === "reject") {
+  // Delete a log entry (e.g. duplicate or test entry).
+  if (action === "delete") {
     const { error } = await supabase
       .from("topup_requests")
-      .update({ status: "rejected", resolved_at: new Date().toISOString() })
+      .delete()
       .eq("id", id);
     if (error) return fail(error.message, 500);
     return ok();

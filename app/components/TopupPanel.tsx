@@ -79,6 +79,7 @@ export function TopupPanel({
     setErr(null);
     try {
       await createTopupRequest(me.id, amt);
+      onDone(); // refresh balance immediately
       setTopupDone(true);
       setTopupAmount("");
       await loadRequests();

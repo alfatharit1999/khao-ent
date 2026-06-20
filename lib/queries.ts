@@ -233,8 +233,17 @@ export async function createTopupRequest(
   person_id: string,
   amount: number,
 ): Promise<void> {
-  const { error } = await db().from("topup_requests").insert({ person_id, amount });
-  if (error) throw error;
+  const s = db();
+  // Credit is added immediately so the balance updates right away.
+  const { error: cErr } = await s.from("credits").insert({
+    person_id,
+    type: "topup",
+    amount,
+    note: "เติมเครดิตด้วยตัวเอง",
+  });
+  if (cErr) throw cErr;
+  // Audit log for admin to cross-check with bank transfer (non-blocking).
+  await s.from("topup_requests").insert({ person_id, amount }).then();
 }
 
 export async function getMyTopupRequests(
