@@ -229,6 +229,20 @@ export async function getFundEntries(): Promise<FundEntry[]> {
   return data as FundEntry[];
 }
 
+export async function getFrontCreditForDate(
+  date: string,
+): Promise<{ person_id: string; amount: number } | null> {
+  const { data, error } = await db()
+    .from("credits")
+    .select("person_id, amount")
+    .eq("date", date)
+    .eq("type", "front_credit")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as { person_id: string; amount: number } | null;
+}
+
 export async function getSettings(): Promise<Record<string, string>> {
   const { data, error } = await db().from("settings").select("*");
   if (error) throw error;

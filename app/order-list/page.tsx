@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   addFrontCredit,
   getDayState,
+  getFrontCreditForDate,
   getOrdersForDate,
   getPeople,
   getSettings,
@@ -36,13 +37,19 @@ export default function OrderListPage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [day, setDay] = useState<DayState>({ date, sealed: false, prof_status: null });
+  const [frontCredit, setFrontCredit] = useState<{ person_id: string; amount: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
-    const [o, d] = await Promise.all([getOrdersForDate(date), getDayState(date)]);
+    const [o, d, fc] = await Promise.all([
+      getOrdersForDate(date),
+      getDayState(date),
+      getFrontCreditForDate(date),
+    ]);
     setOrders(o);
     setDay(d);
+    setFrontCredit(fc);
   }, [date]);
 
   useEffect(() => {
@@ -134,7 +141,8 @@ export default function OrderListPage() {
     }
   };
 
-  const canSeal = day.prof_status !== null; // professor must be confirmed
+  // professor must be confirmed AND fronter must be recorded before sealing
+  const canSeal = day.prof_status !== null && frontCredit !== null;
   const toggleSeal = async () => {
     await setSeal(date, !day.sealed);
     await load();
@@ -212,11 +220,26 @@ export default function OrderListPage() {
             <span className="text-lg font-bold text-brand">{baht(grand)}</span>
           </div>
 
+          <FrontPanel
+            people={people}
+            date={date}
+            grandExclProf={grandExclProf}
+            ownPrice={Object.fromEntries(
+              residentOrders.map((o) => [o.person_id, Number(o.price)]),
+            )}
+            existing={frontCredit}
+            onDone={load}
+          />
+
           {/* Seal gate */}
           <div className="space-y-2 rounded-2xl border border-border bg-surface p-4">
-            {!canSeal ? (
+            {day.prof_status === null ? (
               <p className="text-xs text-debt">
                 ยืนยันสถานะข้าวอาจารย์ด้านบนก่อน (สั่ง หรือ ไม่สั่ง) ถึงจะปิดออเดอร์ได้
+              </p>
+            ) : !frontCredit ? (
+              <p className="text-xs text-debt">
+                ระบุผู้สำรองจ่ายด้านบนก่อนถึงจะปิดออเดอร์ได้
               </p>
             ) : null}
             <button
@@ -237,23 +260,9 @@ export default function OrderListPage() {
               disabled={!day.sealed}
               className="w-full rounded-xl bg-brand px-3 py-3 text-sm font-semibold text-white active:scale-95 disabled:opacity-40"
             >
-              {!day.sealed
-                ? "🔒 ปิดออเดอร์ก่อนถึงจะคัดลอกได้"
-                : copied
-                  ? "คัดลอกแล้ว ✓"
-                  : "📋 คัดลอกรายการไปส่งร้าน"}
+              {day.sealed ? (copied ? "คัดลอกแล้ว ✓" : "📋 คัดลอกรายการไปส่งร้าน") : "🔒 ปิดออเดอร์ก่อนถึงจะคัดลอกได้"}
             </button>
           </div>
-
-          <FrontPanel
-            people={people}
-            date={date}
-            grandExclProf={grandExclProf}
-            ownPrice={Object.fromEntries(
-              residentOrders.map((o) => [o.person_id, Number(o.price)]),
-            )}
-            onDone={load}
-          />
         </div>
       )}
     </main>
@@ -490,19 +499,20 @@ function FrontPanel({
   date,
   grandExclProf,
   ownPrice,
+  existing,
   onDone,
 }: {
   people: Person[];
   date: string;
   grandExclProf: number;
   ownPrice: Record<string, number>;
+  existing: { person_id: string; amount: number } | null;
   onDone: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [personId, setPersonId] = useState("");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   // Default = others' meals only: everyone's order (minus professor) minus the
@@ -512,13 +522,32 @@ function FrontPanel({
     setAmount(String(suggested));
   }, [suggested]);
 
+  if (existing) {
+    const fronter = people.find((p) => p.id === existing.person_id);
+    return (
+      <div className="rounded-2xl border border-border bg-surface p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">💳 ผู้สำรองจ่ายวันนี้</h3>
+          <span className="rounded-full bg-credit-soft px-2 py-0.5 text-[10px] font-medium text-credit">
+            โรลเข้าเครดิตแล้ว ✓
+          </span>
+        </div>
+        <p className="mt-1 text-sm">
+          <span className="font-medium">{fronter?.name ?? "?"}</span>
+          {" — "}
+          <span className="font-semibold">{baht(existing.amount)}</span>
+        </p>
+      </div>
+    );
+  }
+
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-full rounded-xl border border-border px-3 py-3 text-sm font-medium text-muted"
+        className="w-full rounded-xl border-2 border-debt/40 bg-debt-soft px-3 py-3 text-sm font-semibold text-debt"
       >
-        💳 ใครสำรองจ่ายวันนี้? (โรลเข้าเครดิต)
+        💳 ระบุผู้สำรองจ่ายวันนี้ก่อน (โรลเข้าเครดิต)
       </button>
     );
   }
@@ -566,17 +595,13 @@ function FrontPanel({
           />
         </div>
         {err ? <p className="text-xs text-debt">{err}</p> : null}
-        {msg ? <p className="text-xs text-credit">{msg}</p> : null}
         <button
           disabled={busy || !personId}
           onClick={async () => {
             setBusy(true);
             setErr(null);
-            setMsg(null);
             try {
               await addFrontCredit(personId, Number(amount), date);
-              setMsg("บันทึกแล้ว — โรลเข้าเครดิตเรียบร้อย");
-              setPersonId("");
               onDone();
             } catch (e) {
               setErr(e instanceof Error ? e.message : "ผิดพลาด");
