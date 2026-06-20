@@ -34,6 +34,7 @@ export function OrderForm({
   const save = async () => {
     setErr(null);
     const priceNum = Number(price);
+    if (!location) return setErr("เลือก OR หรือ OPD ก่อน");
     if (!menu.trim()) return setErr("ใส่เมนูก่อนน้า");
     if (!Number.isFinite(priceNum) || priceNum < 0)
       return setErr("ราคาไม่ถูกต้อง");
@@ -109,18 +110,18 @@ export function OrderForm({
 
       <label className="mb-1 block text-xs text-muted">ส่งที่</label>
       <div className="mb-3 flex gap-2">
-        {(["OR", "OPD", null] as OrderLocation[]).map((loc) => (
+        {(["OR", "OPD"] as const).map((loc) => (
           <button
-            key={loc ?? "none"}
+            key={loc}
             onClick={() => setLocation(loc)}
-            className="flex-1 rounded-xl border px-3 py-2 text-sm font-medium"
+            className="flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium"
             style={{
               borderColor: location === loc ? "var(--brand)" : "var(--border)",
               background: location === loc ? "var(--brand-soft)" : "var(--surface)",
               color: location === loc ? "var(--brand)" : "var(--text)",
             }}
           >
-            {loc ?? "ไม่ระบุ"}
+            {loc}
           </button>
         ))}
       </div>
