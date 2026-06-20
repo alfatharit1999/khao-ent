@@ -18,6 +18,7 @@ import { NamePicker } from "./components/NamePicker";
 import { OrderForm } from "./components/OrderForm";
 import { TodayBoard } from "./components/TodayBoard";
 import { DateStrip } from "./components/DateStrip";
+import { TopupPanel } from "./components/TopupPanel";
 
 export default function Home() {
   const today = todayISO();
@@ -127,11 +128,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-          {myBalance < 0 ? (
-            <p className="-mt-2 px-1 text-xs text-debt">
-              ติดลบอยู่ — เติมเงินกับพี่บัญชีได้เลย
-            </p>
-          ) : null}
+          <TopupPanel me={mePerson} myBalance={myBalance} onDone={reloadOrders} />
 
           <DateStrip selected={date} onSelect={setDate} />
 

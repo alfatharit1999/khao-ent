@@ -64,3 +64,19 @@ export type Setting = {
   key: string;
   value: string;
 };
+
+export type TopupRequestStatus = "pending" | "approved" | "rejected";
+
+export type TopupRequest = {
+  id: string;
+  person_id: string;
+  amount: number;
+  status: TopupRequestStatus;
+  note: string | null;
+  created_at: string;
+  resolved_at: string | null;
+};
+
+export type TopupRequestWithPerson = TopupRequest & {
+  people: { name: string } | null;
+};

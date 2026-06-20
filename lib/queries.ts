@@ -229,6 +229,53 @@ export async function getFundEntries(): Promise<FundEntry[]> {
   return data as FundEntry[];
 }
 
+export async function createTopupRequest(
+  person_id: string,
+  amount: number,
+): Promise<void> {
+  const { error } = await db().from("topup_requests").insert({ person_id, amount });
+  if (error) throw error;
+}
+
+export async function getMyTopupRequests(
+  person_id: string,
+): Promise<import("./types").TopupRequest[]> {
+  const { data, error } = await db()
+    .from("topup_requests")
+    .select("*")
+    .eq("person_id", person_id)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (error) throw error;
+  return data as import("./types").TopupRequest[];
+}
+
+export async function getTopupRequests(): Promise<
+  import("./types").TopupRequestWithPerson[]
+> {
+  const { data, error } = await db()
+    .from("topup_requests")
+    .select("*, people(name)")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data as import("./types").TopupRequestWithPerson[];
+}
+
+export async function requestSettlement(
+  person_id: string,
+  amount: number,
+  date: string,
+): Promise<void> {
+  const { error } = await db().from("credits").insert({
+    person_id,
+    date,
+    type: "settlement",
+    amount: -Math.abs(amount),
+    note: "ขอเงินคืน (ร้องขอโดยผู้ใช้)",
+  });
+  if (error) throw error;
+}
+
 export async function getFrontCreditForDate(
   date: string,
 ): Promise<{ person_id: string; amount: number } | null> {

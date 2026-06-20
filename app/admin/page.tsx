@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { getAllPeople, getBalances } from "@/lib/queries";
-import type { Balance, Category, Person } from "@/lib/types";
+import { getAllPeople, getBalances, getTopupRequests } from "@/lib/queries";
+import type { Balance, Category, Person, TopupRequestWithPerson } from "@/lib/types";
 import { adminFetch, setPin } from "@/lib/adminClient";
 import { CATEGORY_ORDER, CATEGORY_LABEL, CATEGORY_SHORT } from "@/lib/categories";
 import { baht } from "@/lib/format";
@@ -46,11 +46,13 @@ export default function AdminPage() {
 function AdminPanel() {
   const [people, setPeople] = useState<Person[]>([]);
   const [balances, setBalances] = useState<Balance[]>([]);
+  const [topupReqs, setTopupReqs] = useState<TopupRequestWithPerson[]>([]);
 
   const load = useCallback(async () => {
-    const [p, b] = await Promise.all([getAllPeople(), getBalances()]);
+    const [p, b, t] = await Promise.all([getAllPeople(), getBalances(), getTopupRequests()]);
     setPeople(p);
     setBalances(b);
+    setTopupReqs(t);
   }, []);
 
   useEffect(() => {
@@ -59,10 +61,135 @@ function AdminPanel() {
 
   return (
     <div className="space-y-5 p-4">
+      <TopupRequests requests={topupReqs} onDone={load} />
       <CreditForm people={people} onDone={load} />
       <BalancesMini balances={balances} />
       <PeopleManager people={people} onDone={load} />
     </div>
+  );
+}
+
+function TopupRequests({
+  requests,
+  onDone,
+}: {
+  requests: TopupRequestWithPerson[];
+  onDone: () => void;
+}) {
+  const pending = requests.filter((r) => r.status === "pending");
+  const resolved = requests.filter((r) => r.status !== "pending").slice(0, 5);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const act = async (action: "approve" | "reject", id: string, amount?: number) => {
+    setBusy(id + action);
+    setErr(null);
+    try {
+      await adminFetch("/api/admin/topup-request", { action, id, amount });
+      setEditId(null);
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "ผิดพลาด");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+      <h2 className="text-sm font-semibold">
+        คำขอเติมเครดิต
+        {pending.length > 0 && (
+          <span className="ml-2 rounded-full bg-debt px-2 py-0.5 text-[10px] font-bold text-white">
+            {pending.length} รอ
+          </span>
+        )}
+      </h2>
+
+      {pending.length === 0 && resolved.length === 0 ? (
+        <p className="text-xs text-muted">ยังไม่มีคำขอ</p>
+      ) : null}
+
+      {pending.map((r) => (
+        <div key={r.id} className="rounded-xl border border-border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold">{r.people?.name ?? "?"}</span>
+            <span className="text-sm font-bold text-credit">฿{Number(r.amount).toFixed(0)}</span>
+          </div>
+          <p className="text-[11px] text-muted">
+            {new Date(r.created_at).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}
+          </p>
+
+          {editId === r.id ? (
+            <div className="space-y-2">
+              <input
+                value={editAmount}
+                onChange={(e) => setEditAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                inputMode="decimal"
+                placeholder={`ยอดเดิม ${Number(r.amount).toFixed(0)}`}
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => act("approve", r.id, editAmount ? Number(editAmount) : undefined)}
+                  disabled={busy === r.id + "approve"}
+                  className="flex-1 rounded-xl bg-brand px-2 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                >
+                  อนุมัติ {editAmount ? `฿${editAmount}` : ""}
+                </button>
+                <button onClick={() => setEditId(null)} className="rounded-xl border border-border px-3 py-2 text-xs text-muted">
+                  ยกเลิก
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={() => act("approve", r.id)}
+                disabled={busy === r.id + "approve"}
+                className="flex-1 rounded-xl bg-credit px-2 py-2 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                ✓ อนุมัติ
+              </button>
+              <button
+                onClick={() => { setEditId(r.id); setEditAmount(String(Number(r.amount))); }}
+                className="rounded-xl border border-border px-3 py-2 text-xs font-medium"
+              >
+                แก้ยอด
+              </button>
+              <button
+                onClick={() => act("reject", r.id)}
+                disabled={busy === r.id + "reject"}
+                className="rounded-xl border border-border px-3 py-2 text-xs text-debt disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+      ))}
+
+      {err ? <p className="text-xs text-debt">{err}</p> : null}
+
+      {resolved.length > 0 && (
+        <div>
+          <p className="mb-1 text-[11px] text-muted">ล่าสุด (ดำเนินการแล้ว)</p>
+          <ul className="divide-y divide-border rounded-xl border border-border overflow-hidden">
+            {resolved.map((r) => (
+              <li key={r.id} className="flex items-center justify-between px-3 py-2 text-xs">
+                <span className="font-medium">{r.people?.name ?? "?"}</span>
+                <span>฿{Number(r.amount).toFixed(0)}</span>
+                <span style={{ color: r.status === "approved" ? "var(--credit)" : "var(--debt)" }}>
+                  {r.status === "approved" ? "อนุมัติ ✓" : "ไม่อนุมัติ"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
