@@ -20,12 +20,27 @@ database, so there is zero risk to the live system.
 
 ## What it creates
 
+It only writes to **its own tabs** — your existing sheets are never touched.
+
+**Live / emergency view**
+
 | Tab | Content |
 | --- | --- |
-| 🚨 สั่งฉุกเฉิน | Blank form to **hand-write orders** when the app is down. The script never overwrites this. |
-| วันนี้ | Today's live orders (auto, read-only) |
-| สัปดาห์นี้ | This week's grid: each person × Mon–Fri with their menu |
-| เครดิต | Everyone's credit balance |
+| สัปดาห์นี้ | This week's order grid (person × Mon–Fri with ส่งที่/รายการ/ราคา + totals). Refreshed every minute. |
+| 🚨 สั่งฉุกเฉิน | Blank form to **hand-write orders** when the app is down. Never overwritten. |
+| กองกลาง (จากแอป) | The central-fund ledger with a running balance. |
+
+**Rollback database (append-only — never erased)**
+
+| Tab | Content |
+| --- | --- |
+| DB_ออเดอร์ | Every order ever: date, person, where, menu, price, paid-status. |
+| DB_คนจ่าย | Who ordered/paid each day, total paid, credit rolled, approved? |
+| DB_เครดิต | Full credit ledger: top-ups, roll-overs, adjustments, withdrawals. |
+| DB_ยอดเครดิตรายวัน | A **daily snapshot** of everyone's balance — so you can see the exact state on any past day and roll back if the app bugs out. |
+
+The DB tabs keep the last 60 days in sync (older rows stay frozen as history).
+Change `LOG_DAYS` in the script if you want a different window.
 
 ## Share it
 
