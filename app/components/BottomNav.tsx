@@ -2,23 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getPin } from "@/lib/adminClient";
 
-const items = [
+const BASE_ITEMS = [
   { href: "/", label: "สั่งข้าว", icon: "🍚" },
   { href: "/summary", label: "เครดิต", icon: "💰" },
   { href: "/order-list", label: "รวมออเดอร์", icon: "📋" },
-  { href: "/fund", label: "กองกลาง", icon: "🏦" },
   { href: "/admin", label: "แอดมิน", icon: "⚙️" },
 ];
 
+const ADMIN_ITEM = { href: "/fund", label: "กองกลาง", icon: "🏦" };
+
 export function BottomNav() {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    setIsAdmin(Boolean(getPin()));
+  }, [pathname]); // re-check whenever the user navigates (e.g. after logging in on /admin)
+
+  const items = isAdmin
+    ? [BASE_ITEMS[0], BASE_ITEMS[1], BASE_ITEMS[2], ADMIN_ITEM, BASE_ITEMS[3]]
+    : BASE_ITEMS;
+
   return (
     <nav
       className="fixed bottom-0 left-1/2 z-40 w-full max-w-[480px] -translate-x-1/2 border-t border-border bg-surface"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <ul className="grid grid-cols-5">
+      <ul className={isAdmin ? "grid grid-cols-5" : "grid grid-cols-4"}>
         {items.map((it) => {
           const active =
             it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
