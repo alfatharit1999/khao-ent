@@ -27,17 +27,23 @@ export function OrderForm({
   useEffect(() => {
     setLocation(existing?.location ?? null);
     setMenu(existing?.menu_item ?? "");
-    setPrice(existing != null ? String(existing.price) : "");
+    setPrice(existing?.price != null ? String(existing.price) : "");
     setErr(null);
   }, [existing, me.id]);
 
   const save = async () => {
     setErr(null);
-    const priceNum = Number(price);
     if (!location) return setErr("เลือก OR หรือ OPD ก่อน");
     if (!menu.trim()) return setErr("ใส่เมนูก่อนน้า");
-    if (!Number.isFinite(priceNum) || priceNum < 0)
-      return setErr("ราคาไม่ถูกต้อง");
+    // Price is optional — leave blank if you don't know it yet; the orderer
+    // fills in the restaurant's price later. If filled, it must be valid.
+    const trimmedPrice = price.trim();
+    let priceVal: number | null = null;
+    if (trimmedPrice !== "") {
+      const n = Number(trimmedPrice);
+      if (!Number.isFinite(n) || n < 0) return setErr("ราคาไม่ถูกต้อง");
+      priceVal = n;
+    }
     setBusy(true);
     try {
       await upsertMyOrder({
@@ -45,7 +51,7 @@ export function OrderForm({
         order_date: date,
         location,
         menu_item: menu.trim(),
-        price: priceNum,
+        price: priceVal,
       });
       onSaved();
     } catch {
@@ -85,7 +91,9 @@ export function OrderForm({
           <p className="text-sm">
             {existing.location ? `[${existing.location}] ` : ""}
             {existing.menu_item} —{" "}
-            <span className="font-semibold">{baht(existing.price)}</span>
+            <span className="font-semibold">
+              {existing.price != null ? baht(existing.price) : "รอร้านคิดราคา"}
+            </span>
           </p>
         ) : (
           <p className="text-sm text-muted">วันนี้คุณไม่ได้สั่ง</p>
@@ -103,7 +111,7 @@ export function OrderForm({
         <h3 className="font-semibold">ออเดอร์ของฉัน · {dateLabel ?? "วันนี้"}</h3>
         {existing ? (
           <span className="rounded-full bg-credit-soft px-2 py-0.5 text-xs font-medium text-credit">
-            สั่งแล้ว {baht(existing.price)}
+            {existing.price != null ? `สั่งแล้ว ${baht(existing.price)}` : "สั่งแล้ว · รอราคา"}
           </span>
         ) : null}
       </div>
@@ -134,12 +142,14 @@ export function OrderForm({
         className="mb-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-brand"
       />
 
-      <label className="mb-1 block text-xs text-muted">ราคา (บาท)</label>
+      <label className="mb-1 block text-xs text-muted">
+        ราคา (บาท) — ไม่รู้ราคาเว้นว่างไว้ได้ เดี๋ยวคนสั่งใส่ให้ทีหลัง
+      </label>
       <input
         value={price}
         onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))}
         inputMode="decimal"
-        placeholder="0"
+        placeholder="ปล่อยว่างถ้ายังไม่รู้ราคา"
         className="mb-3 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-brand"
       />
 

@@ -12,6 +12,7 @@ import {
   setProfessorMeal,
   setSeal,
   skipProfessor,
+  updateOrderPrice,
   OrderWithPerson,
 } from "@/lib/queries";
 import type { DayState, Person } from "@/lib/types";
@@ -88,8 +89,15 @@ export default function OrderListPage() {
 
   const byLoc = (loc: LocKey) =>
     residentOrders.filter((o) => (o.location ?? "ไม่ระบุ") === loc);
-  const grand = orders.reduce((s, o) => s + Number(o.price), 0);
-  const grandExclProf = residentOrders.reduce((s, o) => s + Number(o.price), 0);
+  const grand = orders.reduce((s, o) => s + Number(o.price ?? 0), 0);
+  const grandExclProf = residentOrders.reduce(
+    (s, o) => s + Number(o.price ?? 0),
+    0,
+  );
+
+  // Prices the orderer still has to fill in after the restaurant bill arrives.
+  const pendingPrice = residentOrders.filter((o) => o.price == null);
+  const allPriced = pendingPrice.length === 0;
 
   const profBoxes = profOrder
     ? profOrder.location === "BOTH"
@@ -108,7 +116,9 @@ export default function OrderListPage() {
       lines.push("");
       lines.push(`— ${loc} —${note ? ` (${note})` : ""}`);
       list.forEach((o) =>
-        lines.push(`${o.people?.name}: ${o.menu_item ?? "-"} (${o.price})`),
+        lines.push(
+          `${o.people?.name}: ${o.menu_item ?? "-"}${o.price != null ? ` (${o.price})` : ""}`,
+        ),
       );
     });
 
@@ -141,8 +151,9 @@ export default function OrderListPage() {
     }
   };
 
-  // professor must be confirmed AND fronter must be recorded before sealing
-  const canSeal = day.prof_status !== null && frontCredit !== null;
+  // All resident prices filled + professor confirmed + fronter recorded → seal.
+  const canSeal =
+    allPriced && day.prof_status !== null && frontCredit !== null;
   const toggleSeal = async () => {
     await setSeal(date, !day.sealed);
     await load();
@@ -185,7 +196,7 @@ export default function OrderListPage() {
             LOC_ORDER.map((loc) => {
               const list = byLoc(loc);
               if (!list.length) return null;
-              const sub = list.reduce((s, o) => s + Number(o.price), 0);
+              const sub = list.reduce((s, o) => s + Number(o.price ?? 0), 0);
               return (
                 <div
                   key={loc}
@@ -197,23 +208,26 @@ export default function OrderListPage() {
                   </div>
                   <ul className="divide-y divide-border">
                     {list.map((o) => (
-                      <li key={o.id} className="flex gap-3 px-4 py-2.5">
-                        <span className="w-20 shrink-0 truncate text-sm font-medium">
-                          {o.people?.name}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm text-muted">
-                          {o.menu_item}
-                        </span>
-                        <span className="shrink-0 text-sm font-semibold">
-                          {baht(Number(o.price))}
-                        </span>
-                      </li>
+                      <PriceRow
+                        key={o.id}
+                        order={o}
+                        date={date}
+                        sealed={day.sealed}
+                        onSaved={load}
+                      />
                     ))}
                   </ul>
                 </div>
               );
             })
           )}
+
+          {!allPriced ? (
+            <p className="rounded-xl bg-debt-soft px-3 py-2 text-xs text-debt">
+              ⏳ ยังมี {pendingPrice.length} เมนูที่ไม่มีราคา — หลังร้านคิดเงิน
+              ใส่ราคาให้แต่ละคนก่อน (แตะที่ &quot;ใส่ราคา&quot;) ถึงจะปิดออเดอร์ได้
+            </p>
+          ) : null}
 
           <div className="flex items-center justify-between rounded-2xl bg-brand-soft px-4 py-3">
             <span className="text-sm font-medium">รวม {totalBoxes} กล่อง</span>
@@ -225,7 +239,7 @@ export default function OrderListPage() {
             date={date}
             grandExclProf={grandExclProf}
             ownPrice={Object.fromEntries(
-              residentOrders.map((o) => [o.person_id, Number(o.price)]),
+              residentOrders.map((o) => [o.person_id, Number(o.price ?? 0)]),
             )}
             existing={frontCredit}
             onDone={load}
@@ -233,7 +247,11 @@ export default function OrderListPage() {
 
           {/* Seal gate */}
           <div className="space-y-2 rounded-2xl border border-border bg-surface p-4">
-            {day.prof_status === null ? (
+            {!allPriced ? (
+              <p className="text-xs text-debt">
+                ใส่ราคาให้ครบทุกเมนูก่อน ({pendingPrice.length} เมนูยังไม่มีราคา) ถึงจะปิดออเดอร์ได้
+              </p>
+            ) : day.prof_status === null ? (
               <p className="text-xs text-debt">
                 ยืนยันสถานะข้าวอาจารย์ด้านบนก่อน (สั่ง หรือ ไม่สั่ง) ถึงจะปิดออเดอร์ได้
               </p>
@@ -266,6 +284,85 @@ export default function OrderListPage() {
         </div>
       )}
     </main>
+  );
+}
+
+/** One resident's order row — the orderer taps to fill in the price. */
+function PriceRow({
+  order,
+  date,
+  sealed,
+  onSaved,
+}: {
+  order: OrderWithPerson;
+  date: string;
+  sealed: boolean;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(order.price != null ? String(order.price) : "");
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    const trimmed = val.trim();
+    const price = trimmed === "" ? null : Number(trimmed);
+    if (price != null && (!Number.isFinite(price) || price < 0)) return;
+    setBusy(true);
+    try {
+      await updateOrderPrice(order.person_id, date, price);
+      setEditing(false);
+      onSaved();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <li className="flex items-center gap-3 px-4 py-2.5">
+      <span className="w-20 shrink-0 truncate text-sm font-medium">
+        {order.people?.name}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm text-muted">
+        {order.menu_item}
+      </span>
+      {sealed ? (
+        <span className="shrink-0 text-sm font-semibold">
+          {order.price != null ? baht(Number(order.price)) : "—"}
+        </span>
+      ) : editing ? (
+        <div className="flex shrink-0 items-center gap-1.5">
+          <input
+            value={val}
+            onChange={(e) => setVal(e.target.value.replace(/[^0-9.]/g, ""))}
+            inputMode="decimal"
+            autoFocus
+            placeholder="0"
+            className="w-16 rounded-lg border border-border bg-background px-2 py-1 text-sm"
+          />
+          <button
+            onClick={save}
+            disabled={busy}
+            className="rounded-lg bg-brand px-2 py-1 text-xs font-semibold text-white disabled:opacity-50"
+          >
+            ✓
+          </button>
+        </div>
+      ) : order.price != null ? (
+        <button
+          onClick={() => setEditing(true)}
+          className="shrink-0 text-sm font-semibold text-brand underline decoration-dotted"
+        >
+          {baht(Number(order.price))}
+        </button>
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="shrink-0 rounded-lg border border-debt/40 bg-debt-soft px-2 py-1 text-xs font-medium text-debt"
+        >
+          ใส่ราคา
+        </button>
+      )}
+    </li>
   );
 }
 

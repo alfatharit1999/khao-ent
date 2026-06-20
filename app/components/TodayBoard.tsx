@@ -28,7 +28,8 @@ export function TodayBoard({
   meId: string | null;
   dateLabel?: string;
 }) {
-  const total = orders.reduce((s, o) => s + Number(o.price), 0);
+  const total = orders.reduce((s, o) => s + Number(o.price ?? 0), 0);
+  const anyPending = orders.some((o) => o.price == null);
 
   return (
     <div className="rounded-2xl border border-border bg-surface">
@@ -57,7 +58,11 @@ export function TodayBoard({
                 {o.menu_item}
               </div>
               <div className="shrink-0 text-sm font-semibold">
-                {baht(Number(o.price))}
+                {o.price != null ? (
+                  baht(Number(o.price))
+                ) : (
+                  <span className="text-xs font-normal text-muted">รอราคา</span>
+                )}
               </div>
             </li>
           ))}
@@ -66,7 +71,9 @@ export function TodayBoard({
 
       {orders.length > 0 ? (
         <div className="flex items-center justify-between border-t border-border px-4 py-3">
-          <span className="text-sm font-medium">รวมวันนี้</span>
+          <span className="text-sm font-medium">
+            รวมวันนี้{anyPending ? " (ยังไม่ครบราคา)" : ""}
+          </span>
           <span className="text-base font-bold text-brand">{baht(total)}</span>
         </div>
       ) : null}

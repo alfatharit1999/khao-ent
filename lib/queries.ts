@@ -73,11 +73,25 @@ export async function upsertMyOrder(input: {
   order_date: string;
   location: "OR" | "OPD" | "BOTH" | null;
   menu_item: string | null;
-  price: number;
+  price: number | null;
 }): Promise<void> {
   const { error } = await db()
     .from("orders")
     .upsert(input, { onConflict: "person_id,order_date" });
+  if (error) throw error;
+}
+
+/** Orderer fills in the restaurant's actual price for one person's meal. */
+export async function updateOrderPrice(
+  person_id: string,
+  order_date: string,
+  price: number | null,
+): Promise<void> {
+  const { error } = await db()
+    .from("orders")
+    .update({ price })
+    .eq("person_id", person_id)
+    .eq("order_date", order_date);
   if (error) throw error;
 }
 

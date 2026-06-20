@@ -23,7 +23,7 @@ export type Order = {
   order_date: string; // YYYY-MM-DD
   location: OrderLocation;
   menu_item: string | null;
-  price: number;
+  price: number | null; // null = ordered, waiting for the restaurant's price
   fronted: boolean;
   created_at: string;
 };
