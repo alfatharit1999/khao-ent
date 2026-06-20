@@ -1,6 +1,6 @@
 "use client";
 
-import { upcomingDays } from "@/lib/format";
+import { upcomingDays, isOrderLocked } from "@/lib/format";
 
 /** Horizontal strip of upcoming days for pre-ordering. */
 export function DateStrip({
@@ -18,6 +18,7 @@ export function DateStrip({
       <div className="flex gap-2 pb-1">
         {chips.map((c) => {
           const active = c.iso === selected;
+          const locked = isOrderLocked(c.iso);
           return (
             <button
               key={c.iso}
@@ -27,6 +28,7 @@ export function DateStrip({
                 borderColor: active ? "var(--brand)" : "var(--border)",
                 background: active ? "var(--brand)" : "var(--surface)",
                 color: active ? "#fff" : "var(--text)",
+                opacity: locked && !active ? 0.55 : 1,
               }}
             >
               <span
@@ -36,6 +38,7 @@ export function DateStrip({
                 {c.isToday ? "วันนี้" : c.dow}
               </span>
               <span className="text-base font-bold leading-tight">{c.day}</span>
+              <span className="text-[9px] leading-none">{locked ? "🔒" : " "}</span>
             </button>
           );
         })}

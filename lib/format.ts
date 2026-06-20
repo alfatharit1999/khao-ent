@@ -41,6 +41,19 @@ function toISO(dt: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** Orders for a day lock at this time (Asia/Bangkok) — when the shop order goes in. */
+export const ORDER_CUTOFF = "10:30";
+
+/** True once it's past 10:30 (Bangkok) on the order's own date — no more edits. */
+export function isOrderLocked(orderISO: string): boolean {
+  const nowBkk = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }),
+  );
+  const [y, m, d] = orderISO.split("-").map(Number);
+  const cutoff = new Date(y, m - 1, d, 10, 30, 0, 0);
+  return nowBkk >= cutoff;
+}
+
 /** ISO date `n` days after `iso`. */
 export function addDaysISO(iso: string, n: number): string {
   const [y, m, d] = iso.split("-").map(Number);
