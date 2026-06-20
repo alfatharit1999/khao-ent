@@ -248,7 +248,10 @@ export default function OrderListPage() {
           <FrontPanel
             people={people}
             date={date}
-            grand={grandExclProf}
+            grandExclProf={grandExclProf}
+            ownPrice={Object.fromEntries(
+              residentOrders.map((o) => [o.person_id, Number(o.price)]),
+            )}
             onDone={load}
           />
         </div>
@@ -485,22 +488,29 @@ function ProfessorCard({
 function FrontPanel({
   people,
   date,
-  grand,
+  grandExclProf,
+  ownPrice,
   onDone,
 }: {
   people: Person[];
   date: string;
-  grand: number;
+  grandExclProf: number;
+  ownPrice: Record<string, number>;
   onDone: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [personId, setPersonId] = useState("");
-  const [amount, setAmount] = useState(String(grand));
+  const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => setAmount(String(grand)), [grand]);
+  // Default = others' meals only: everyone's order (minus professor) minus the
+  // selected fronter's own meal (their own is settled, not reimbursed).
+  const suggested = grandExclProf - (personId ? ownPrice[personId] ?? 0 : 0);
+  useEffect(() => {
+    setAmount(String(suggested));
+  }, [suggested]);
 
   if (!open) {
     return (
@@ -523,9 +533,9 @@ function FrontPanel({
       </div>
       <div className="space-y-3 p-4">
         <p className="text-xs text-muted">
-          คนที่สำรองจ่ายค่าข้าวที่ห้อง treatment จะได้เครดิตคืนเท่ายอดที่จ่าย
-          (ไม่ต้องโอนเงินสด) ยอดนี้<b>ไม่รวมข้าวอาจารย์</b> — และค่าข้าวของตัวเอง
-          จะถูกหักตามปกติ สรุปแล้วได้เครดิตเท่าที่ออกแทนคนอื่นเป๊ะ
+          คนที่สำรองจ่ายจะได้เครดิตคืน<b>เฉพาะส่วนที่ออกแทนคนอื่น</b> (ไม่ต้องโอนเงินสด)
+          — ยอดนี้ตัด<b>ข้าวของตัวเอง</b>และ<b>ข้าวอาจารย์</b>ออกแล้ว
+          ข้าวของตัวเองถือว่าจ่ายเองไปแล้ว ไม่นับเป็นหนี้ซ้ำ
         </p>
         <div>
           <label className="mb-1 block text-xs text-muted">ใครสำรองจ่าย</label>
@@ -546,7 +556,7 @@ function FrontPanel({
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted">
-            ยอดที่สำรองจ่าย (บาท) — ไม่รวมข้าวอาจารย์
+            ยอดเครดิตคืน (บาท) — ตัดข้าวตัวเอง + ข้าวอาจารย์แล้ว
           </label>
           <input
             value={amount}

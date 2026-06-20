@@ -101,8 +101,11 @@ left join (
   select person_id, sum(amount) as topups from credits group by person_id
 ) c on c.person_id = p.id
 left join (
+  -- `fronted` = the person paid this meal themselves at the counter (they were
+  -- the one who laid out the cash), so it is NOT also a debt for them.
   select person_id, sum(price) as spent from orders
   where order_date <= (now() at time zone 'Asia/Bangkok')::date
+    and fronted = false
   group by person_id
 ) o on o.person_id = p.id
 where p.active;

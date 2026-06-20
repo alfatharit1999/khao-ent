@@ -113,7 +113,9 @@ export async function getSpendBetween(
 /**
  * Roll-over: person fronted cash at the treatment room for `date`.
  * Public action (no admin PIN) — RLS allows inserting front_credit only.
- * Credits them the amount laid out and flags that day's orders as fronted.
+ * `amount` is what they paid for OTHERS (their own meal + the professor are
+ * already excluded by the caller). Their own order is flagged `fronted` so it
+ * isn't also charged to them — no double-count.
  */
 export async function addFrontCredit(
   person_id: string,
@@ -126,12 +128,14 @@ export async function addFrontCredit(
     date,
     type: "front_credit",
     amount,
-    note: `สำรองจ่ายค่าข้าว ${date}`,
+    note: `สำรองจ่ายค่าข้าว ${date} (ออกแทนคนอื่น)`,
   });
   if (cErr) throw cErr;
+  // Mark ONLY the fronter's own order for the day as settled.
   const { error: oErr } = await s
     .from("orders")
     .update({ fronted: true })
+    .eq("person_id", person_id)
     .eq("order_date", date);
   if (oErr) throw oErr;
 }
