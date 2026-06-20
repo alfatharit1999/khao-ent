@@ -17,9 +17,11 @@ import { PageHeader, SetupHint } from "./components/ui";
 import { NamePicker } from "./components/NamePicker";
 import { OrderForm } from "./components/OrderForm";
 import { TodayBoard } from "./components/TodayBoard";
+import { DateStrip } from "./components/DateStrip";
 
 export default function Home() {
-  const date = todayISO();
+  const today = todayISO();
+  const [date, setDate] = useState(today);
   const [me, setMe] = useMe();
   const [people, setPeople] = useState<Person[]>([]);
   const [orders, setOrders] = useState<OrderWithPerson[]>([]);
@@ -99,9 +101,9 @@ export default function Home() {
           mePerson ? (
             <button
               onClick={() => setMe(null)}
-              className="rounded-full border border-border px-3 py-1 text-xs"
+              className="rounded-full border border-border px-3 py-1 text-xs font-medium"
             >
-              {mePerson.name} ⌄
+              ← เปลี่ยนชื่อ
             </button>
           ) : null
         }
@@ -113,34 +115,42 @@ export default function Home() {
         <NamePicker people={people} onPick={setMe} onCreate={handleCreate} />
       ) : (
         <div className="space-y-4 p-4">
-          <div
-            className="rounded-2xl p-4"
-            style={{
-              background: myBalance < 0 ? "var(--debt-soft)" : "var(--credit-soft)",
-            }}
-          >
-            <div className="text-xs text-muted">เครดิตคงเหลือของคุณ</div>
-            <div
-              className="text-2xl font-bold"
-              style={{ color: myBalance < 0 ? "var(--debt)" : "var(--credit)" }}
-            >
-              {baht(myBalance)}
-            </div>
-            {myBalance < 0 ? (
-              <div className="mt-0.5 text-xs text-debt">
-                ติดลบอยู่ — เติมเงินกับพี่บัญชีได้เลย
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface border border-border px-4 py-3">
+            <span className="text-sm font-medium">{mePerson.name}</span>
+            <div className="text-right">
+              <div className="text-[11px] text-muted">เครดิตคงเหลือ</div>
+              <div
+                className="text-xl font-bold leading-tight"
+                style={{ color: myBalance < 0 ? "var(--debt)" : "var(--credit)" }}
+              >
+                {baht(myBalance)}
               </div>
-            ) : null}
+            </div>
           </div>
+          {myBalance < 0 ? (
+            <p className="-mt-2 px-1 text-xs text-debt">
+              ติดลบอยู่ — เติมเงินกับพี่บัญชีได้เลย
+            </p>
+          ) : null}
+
+          <DateStrip selected={date} onSelect={setDate} />
+
+          {date !== today ? (
+            <p className="rounded-xl bg-brand-soft px-3 py-2 text-xs text-brand">
+              พรีออเดอร์สำหรับ {thaiDate(date)} — ยังไม่ตัดเครดิตจนถึงวันนั้น
+              แก้/ยกเลิกก่อนได้ไม่มีปัญหา
+            </p>
+          ) : null}
 
           <OrderForm
             me={mePerson}
             existing={myOrder}
             date={date}
+            dateLabel={date === today ? "วันนี้" : thaiDate(date)}
             onSaved={reloadOrders}
           />
 
-          <TodayBoard orders={orders} meId={me} />
+          <TodayBoard orders={orders} meId={me} dateLabel={thaiDate(date)} />
         </div>
       )}
     </main>

@@ -9,11 +9,13 @@ export function OrderForm({
   me,
   existing,
   date,
+  dateLabel,
   onSaved,
 }: {
   me: Person;
   existing: OrderWithPerson | undefined;
   date: string;
+  dateLabel?: string;
   onSaved: () => void;
 }) {
   const [location, setLocation] = useState<OrderLocation>(null);
@@ -71,7 +73,7 @@ export function OrderForm({
   return (
     <div className="rounded-2xl border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-semibold">ออเดอร์ของฉันวันนี้</h3>
+        <h3 className="font-semibold">ออเดอร์ของฉัน · {dateLabel ?? "วันนี้"}</h3>
         {existing ? (
           <span className="rounded-full bg-credit-soft px-2 py-0.5 text-xs font-medium text-credit">
             สั่งแล้ว {baht(existing.price)}

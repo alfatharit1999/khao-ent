@@ -22,16 +22,18 @@ function LocBadge({ loc }: { loc: "OR" | "OPD" | null }) {
 export function TodayBoard({
   orders,
   meId,
+  dateLabel,
 }: {
   orders: OrderWithPerson[];
   meId: string | null;
+  dateLabel?: string;
 }) {
   const total = orders.reduce((s, o) => s + Number(o.price), 0);
 
   return (
     <div className="rounded-2xl border border-border bg-surface">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h3 className="font-semibold">ออเดอร์วันนี้</h3>
+        <h3 className="font-semibold">ออเดอร์ {dateLabel ?? "วันนี้"}</h3>
         <span className="text-sm text-muted">{orders.length} รายการ</span>
       </div>
 

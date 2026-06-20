@@ -73,7 +73,9 @@ create table settings (
   value text
 );
 
--- Per-person balance = sum(credits) − sum(order prices).
+-- Per-person balance = sum(credits) − sum(CHARGED order prices).
+-- Only orders dated today-or-earlier (Asia/Bangkok) are charged; future
+-- pre-orders don't touch the balance until their day arrives.
 -- Positive = credit remaining, negative = debt.
 create view balances as
 select
@@ -89,7 +91,9 @@ left join (
   select person_id, sum(amount) as topups from credits group by person_id
 ) c on c.person_id = p.id
 left join (
-  select person_id, sum(price) as spent from orders group by person_id
+  select person_id, sum(price) as spent from orders
+  where order_date <= (now() at time zone 'Asia/Bangkok')::date
+  group by person_id
 ) o on o.person_id = p.id
 where p.active;
 

@@ -41,6 +41,36 @@ function toISO(dt: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+/** ISO date `n` days after `iso`. */
+export function addDaysISO(iso: string, n: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return toISO(new Date(y, m - 1, d + n));
+}
+
+export type DayChip = {
+  iso: string;
+  dow: string; // อา./จ./...
+  day: number;
+  isToday: boolean;
+  isPast: boolean;
+};
+
+/** `count` consecutive days starting today (Asia/Bangkok). */
+export function upcomingDays(count: number): DayChip[] {
+  const today = todayISO();
+  return Array.from({ length: count }, (_, i) => {
+    const iso = addDaysISO(today, i);
+    const [y, m, d] = iso.split("-").map(Number);
+    return {
+      iso,
+      dow: THAI_DOW[new Date(y, m - 1, d).getDay()],
+      day: d,
+      isToday: i === 0,
+      isPast: false,
+    };
+  });
+}
+
 /** Monday→Sunday range (ISO strings) for the week containing `iso` (default today). */
 export function weekRange(iso: string = todayISO()): { start: string; end: string } {
   const [y, m, d] = iso.split("-").map(Number);
