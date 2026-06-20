@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { BottomNav } from "./components/BottomNav";
+import { BackupLink } from "./components/BackupLink";
 
 const notoThai = Noto_Sans_Thai({
   subsets: ["thai", "latin"],
@@ -29,7 +30,10 @@ export default function RootLayout({
   return (
     <html lang="th">
       <body className={notoThai.className}>
-        <div className="app-shell">{children}</div>
+        <div className="app-shell">
+          {children}
+          <BackupLink />
+        </div>
         <BottomNav />
       </body>
     </html>

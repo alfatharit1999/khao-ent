@@ -19,6 +19,7 @@ import { OrderForm } from "./components/OrderForm";
 import { TodayBoard } from "./components/TodayBoard";
 import { DateStrip } from "./components/DateStrip";
 import { TopupPanel } from "./components/TopupPanel";
+import { EmergencyScreen } from "./components/BackupLink";
 
 export default function Home() {
   const today = todayISO();
@@ -29,6 +30,7 @@ export default function Home() {
   const [balances, setBalances] = useState<Balance[]>([]);
   const [weekLabel, setWeekLabel] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [errored, setErrored] = useState(false);
 
   const reloadOrders = useCallback(async () => {
     const [o, b] = await Promise.all([getOrdersForDate(date), getBalances()]);
@@ -58,6 +60,8 @@ export default function Home() {
         setPeople(p);
         setWeekLabel(s.week_label ?? "");
         await reloadOrders();
+      } catch {
+        if (active) setErrored(true);
       } finally {
         if (active) setLoading(false);
       }
@@ -85,6 +89,15 @@ export default function Home() {
       <main>
         <PageHeader title="สั่งข้าว ENT" />
         <SetupHint />
+      </main>
+    );
+  }
+
+  if (errored) {
+    return (
+      <main>
+        <PageHeader title="สั่งข้าว ENT" />
+        <EmergencyScreen />
       </main>
     );
   }
