@@ -25,7 +25,7 @@ export function AdminGate({ children }: { children: ReactNode }) {
     try {
       const res = await fetch("/api/admin/verify", {
         method: "POST",
-        headers: { "x-admin-pin": pin },
+        headers: { "x-admin-pin": encodeURIComponent(pin) },
       });
       if (!res.ok) throw new Error();
       setPin(pin);
