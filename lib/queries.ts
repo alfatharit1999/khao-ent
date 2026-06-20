@@ -285,6 +285,52 @@ export async function requestSettlement(
   if (error) throw error;
 }
 
+/** Manual balance adjustment by admin (signed amount). Anon client + RLS. */
+export async function addAdjustment(
+  person_id: string,
+  amount: number,
+  note: string,
+): Promise<void> {
+  const { error } = await db().from("credits").insert({
+    person_id,
+    type: "adjustment",
+    amount,
+    note,
+  });
+  if (error) throw error;
+}
+
+/** Mark a top-up log entry as verified against the bank transfer. */
+export async function markTopupChecked(id: string): Promise<void> {
+  const { error } = await db()
+    .from("topup_requests")
+    .update({ status: "approved", resolved_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Reverse a top-up: the credit was added when the user submitted, so removing
+ * the entry must also claw back that amount (insert a negative adjustment),
+ * then delete the log row.
+ */
+export async function reverseTopup(
+  id: string,
+  person_id: string,
+  amount: number,
+): Promise<void> {
+  const s = db();
+  const { error: cErr } = await s.from("credits").insert({
+    person_id,
+    type: "adjustment",
+    amount: -Math.abs(amount),
+    note: "ยกเลิกการเติมเครดิต (แอดมิน)",
+  });
+  if (cErr) throw cErr;
+  const { error: dErr } = await s.from("topup_requests").delete().eq("id", id);
+  if (dErr) throw dErr;
+}
+
 export async function getFrontCreditForDate(
   date: string,
 ): Promise<{ person_id: string; amount: number } | null> {
