@@ -7,7 +7,7 @@ import { checkAdminPin, getSupabaseAdmin } from "./supabaseAdmin";
  * Returns the service-role Supabase client, or a 401 response to return early.
  */
 export function guardAdmin(req: NextRequest) {
-  const pin = req.headers.get("x-admin-pin");
+  const pin = decodeURIComponent(req.headers.get("x-admin-pin") ?? "");
   if (!checkAdminPin(pin)) {
     return { error: NextResponse.json({ error: "unauthorized" }, { status: 401 }) };
   }

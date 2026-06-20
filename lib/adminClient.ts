@@ -23,7 +23,7 @@ export async function adminFetch<T = unknown>(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-admin-pin": pin ?? "",
+      "x-admin-pin": pin ? encodeURIComponent(pin) : "",
     },
     body: JSON.stringify(body),
   });
