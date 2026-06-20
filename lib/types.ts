@@ -9,7 +9,13 @@ export type Person = {
   note: string | null;
 };
 
-export type OrderLocation = "OR" | "OPD" | null;
+export type OrderLocation = "OR" | "OPD" | "BOTH" | null;
+
+export type DayState = {
+  date: string;
+  sealed: boolean;
+  prof_status: "ordering" | "skip" | null;
+};
 
 export type Order = {
   id: string;

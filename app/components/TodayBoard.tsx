@@ -3,7 +3,7 @@
 import type { OrderWithPerson } from "@/lib/queries";
 import { baht } from "@/lib/format";
 
-function LocBadge({ loc }: { loc: "OR" | "OPD" | null }) {
+function LocBadge({ loc }: { loc: "OR" | "OPD" | "BOTH" | null }) {
   if (!loc) return null;
   const isOR = loc === "OR";
   return (
@@ -14,7 +14,7 @@ function LocBadge({ loc }: { loc: "OR" | "OPD" | null }) {
         color: isOR ? "#4f46e5" : "#c2620f",
       }}
     >
-      {loc}
+      {loc === "BOTH" ? "OR+OPD" : loc}
     </span>
   );
 }

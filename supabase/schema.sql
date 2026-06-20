@@ -27,7 +27,7 @@ create table orders (
   id          uuid primary key default gen_random_uuid(),
   person_id   uuid not null references people(id) on delete cascade,
   order_date  date not null,
-  location    text check (location in ('OR', 'OPD')),
+  location    text check (location in ('OR', 'OPD', 'BOTH')),  -- BOTH = อ.ไพบูลย์ 2 กล่อง
   menu_item   text,
   price       numeric(10, 2) not null default 0,
   fronted     boolean not null default false,
@@ -35,6 +35,16 @@ create table orders (
   unique (person_id, order_date)
 );
 create index orders_date_idx on orders(order_date);
+
+-- Per-day status the order person sets before sending to the shop:
+--   prof_status : อ.ไพบูลย์ confirmed ('ordering' | 'skip' | null = not yet)
+--   sealed      : order finalized → safe to copy to the restaurant
+create table day_state (
+  date        date primary key,
+  sealed      boolean not null default false,
+  prof_status text check (prof_status in ('ordering', 'skip')),
+  updated_at  timestamptz not null default now()
+);
 
 -- Credit ledger: anything that moves a person's balance UP or down,
 -- except food orders (those are tracked in `orders`).
@@ -110,6 +120,7 @@ alter table orders       enable row level security;
 alter table credits      enable row level security;
 alter table fund_entries enable row level security;
 alter table settings     enable row level security;
+alter table day_state    enable row level security;
 
 -- Read access for everyone.
 create policy "read people"   on people       for select using (true);
@@ -129,6 +140,11 @@ create policy "write orders delete" on orders for delete using (true);
 -- Anyone can record a roll-over (front credit) — but ONLY that type.
 -- Top-ups / adjustments / settlements remain admin-only (service key).
 create policy "write front credit" on credits for insert with check (type = 'front_credit');
+
+-- The order person (no PIN) sets the professor status + seals the day.
+create policy "read day_state"  on day_state for select using (true);
+create policy "write day_state insert" on day_state for insert with check (true);
+create policy "write day_state update" on day_state for update using (true) with check (true);
 
 -- Expose the balances view to the public API.
 grant select on balances to anon, authenticated;

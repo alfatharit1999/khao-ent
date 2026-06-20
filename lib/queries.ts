@@ -71,7 +71,7 @@ export async function getBalances(): Promise<Balance[]> {
 export async function upsertMyOrder(input: {
   person_id: string;
   order_date: string;
-  location: "OR" | "OPD" | null;
+  location: "OR" | "OPD" | "BOTH" | null;
   menu_item: string | null;
   price: number;
 }): Promise<void> {
@@ -134,6 +134,85 @@ export async function addFrontCredit(
     .update({ fronted: true })
     .eq("order_date", date);
   if (oErr) throw oErr;
+}
+
+// ---- Professor daily meal + day seal (managed by the order person) --------
+
+export async function getDayState(date: string): Promise<import("./types").DayState> {
+  const { data, error } = await db()
+    .from("day_state")
+    .select("*")
+    .eq("date", date)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return { date, sealed: false, prof_status: null };
+  return {
+    date,
+    sealed: Boolean(data.sealed),
+    prof_status: data.prof_status ?? null,
+  };
+}
+
+/** Set the professor's meal for a day. `location` 'BOTH' = two boxes (×2 charge). */
+export async function setProfessorMeal(input: {
+  professor_id: string;
+  date: string;
+  location: "OR" | "OPD" | "BOTH";
+  menu_item: string;
+  unit_price: number;
+}): Promise<void> {
+  const total = input.unit_price * (input.location === "BOTH" ? 2 : 1);
+  const { error: oErr } = await db()
+    .from("orders")
+    .upsert(
+      {
+        person_id: input.professor_id,
+        order_date: input.date,
+        location: input.location,
+        menu_item: input.menu_item,
+        price: total,
+      },
+      { onConflict: "person_id,order_date" },
+    );
+  if (oErr) throw oErr;
+  const { error: sErr } = await db()
+    .from("day_state")
+    .upsert(
+      { date: input.date, prof_status: "ordering", updated_at: new Date().toISOString() },
+      { onConflict: "date" },
+    );
+  if (sErr) throw sErr;
+}
+
+/** Mark the professor as not ordering today (removes any meal row). */
+export async function skipProfessor(
+  professor_id: string,
+  date: string,
+): Promise<void> {
+  const { error: dErr } = await db()
+    .from("orders")
+    .delete()
+    .eq("person_id", professor_id)
+    .eq("order_date", date);
+  if (dErr) throw dErr;
+  const { error: sErr } = await db()
+    .from("day_state")
+    .upsert(
+      { date, prof_status: "skip", updated_at: new Date().toISOString() },
+      { onConflict: "date" },
+    );
+  if (sErr) throw sErr;
+}
+
+/** Seal / unseal a day (gate for copying the order to the restaurant). */
+export async function setSeal(date: string, sealed: boolean): Promise<void> {
+  const { error } = await db()
+    .from("day_state")
+    .upsert(
+      { date, sealed, updated_at: new Date().toISOString() },
+      { onConflict: "date" },
+    );
+  if (error) throw error;
 }
 
 export async function getFundEntries(): Promise<FundEntry[]> {
