@@ -77,7 +77,7 @@ export function OrderForm({
     }
   };
 
-  // After 10:30 on the order's own day the shop order is in — freeze edits.
+  // After 09:30 on the order's own day the shop order is in — freeze edits.
   if (isOrderLocked(date)) {
     return (
       <div className="rounded-2xl border border-border bg-surface p-4">

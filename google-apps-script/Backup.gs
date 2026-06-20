@@ -15,7 +15,9 @@
  * ONE-TIME SETUP
  *   1. Extensions → Apps Script. Paste this whole file. Save.
  *   2. Function dropdown → `setup` → Run. Approve permissions.
- *   3. Done — it refreshes every minute on its own.
+ *   3. Done. Schedule (Asia/Bangkok):
+ *        • This-week grid: ~midnight and ~09:30 (the order cutoff).
+ *        • Records (orders/payments/credits/snapshot/fund): every 8 hours.
  *
  * Manual refresh any time: run `syncNow`.
  */
@@ -30,21 +32,45 @@ const DOW_TH = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 
 function setup() {
   setupEmergencyTab_();
-  syncNow();
-  const exists = ScriptApp.getProjectTriggers().some(
-    (t) => t.getHandlerFunction() === "syncNow",
+  syncNow(); // build everything immediately
+
+  // Clear any triggers we created before, then set the schedule fresh.
+  const mine = ["syncNow", "syncWeekTab", "syncLogs"];
+  ScriptApp.getProjectTriggers().forEach((t) => {
+    if (mine.indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
+  });
+
+  // This-week order grid: at midnight (people ordering before bed) and at the
+  // 09:30 cutoff (people ordering after they wake up). (±15 min, Apps Script.)
+  ScriptApp.newTrigger("syncWeekTab").timeBased().atHour(0).nearMinute(5).everyDays(1).create();
+  ScriptApp.newTrigger("syncWeekTab").timeBased().atHour(9).nearMinute(30).everyDays(1).create();
+
+  // Records (orders/payments/credits/snapshots/fund): every 8 hours.
+  ScriptApp.newTrigger("syncLogs").timeBased().everyHours(8).create();
+
+  SpreadsheetApp.getActiveSpreadsheet().toast(
+    "ตั้งค่าเรียบร้อย ✓ ตารางอัปเดตเที่ยงคืน+9:30 · บันทึกทุก 8 ชม.",
   );
-  if (!exists) ScriptApp.newTrigger("syncNow").timeBased().everyMinutes(1).create();
-  SpreadsheetApp.getActiveSpreadsheet().toast("ตั้งค่าเรียบร้อย ✓ ซิงก์ทุกนาที");
 }
 
+/** Everything at once (used on setup + as a manual "refresh now"). */
 function syncNow() {
-  syncWeek_();        // live this-week grid (overwritten)
-  logOrders_();       // DB: every order (append-only)
-  logClaims_();       // DB: who paid each day (append-only)
-  logCredits_();      // DB: full credit ledger (append-only)
-  snapshotBalances_();// DB: daily credit snapshot per person (rollback)
-  syncFund_();        // กองกลาง ledger
+  syncWeekTab();
+  syncLogs();
+}
+
+/** Live this-week grid (overwritten). Trigger: midnight + 09:30. */
+function syncWeekTab() {
+  syncWeek_();
+}
+
+/** Append-only records + fund. Trigger: every 8 hours. */
+function syncLogs() {
+  logOrders_();        // DB: every order (append-only)
+  logClaims_();        // DB: who paid each day (append-only)
+  logCredits_();       // DB: full credit ledger (append-only)
+  snapshotBalances_(); // DB: daily credit snapshot per person (rollback)
+  syncFund_();         // กองกลาง ledger
 }
 
 // ---- helpers ---------------------------------------------------------------
