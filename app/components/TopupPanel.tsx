@@ -174,8 +174,12 @@ export function TopupPanel({
               >
                 ส่งคำขอเติมเครดิต
               </button>
-              <p className="mt-2 text-[11px] text-muted text-center">
-                โอนเงินก่อน แล้วส่ง slip ที่ LINE: <span className="font-semibold text-brand">{LINE_ID}</span>
+              <p className="mt-2 text-[11px] text-center font-semibold text-debt">
+                ⚠️ ใช้ระบบเชื่อใจ ห้ามเกรียน
+              </p>
+              <p className="mt-1 text-[11px] text-muted text-center">
+                โอนเงินแล้วส่ง slip ที่ LINE: <span className="font-semibold text-brand">{LINE_ID}</span>
+                {" — "}แอดมินจะตรวจสอบเมื่อมีเวลา
               </p>
             </>
           ) : (
@@ -187,7 +191,7 @@ export function TopupPanel({
                 แล้วส่ง slip ที่ LINE:{" "}
                 <span className="font-bold text-brand">{LINE_ID}</span>
               </p>
-              <p className="text-xs text-muted">เครดิตจะเพิ่มหลังแอดมินตรวจสอบ</p>
+              <p className="text-xs text-muted">แอดมินจะตรวจสอบ slip เมื่อมีเวลา</p>
               <button onClick={reset} className="text-xs text-brand underline">ปิด</button>
             </div>
           )}
