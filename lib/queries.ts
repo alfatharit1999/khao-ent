@@ -171,6 +171,24 @@ export async function getDayState(date: string): Promise<import("./types").DaySt
   };
 }
 
+/** The professor's most recent meal before `beforeDate` — to avoid repeats. */
+export async function getLastProfessorOrder(
+  professor_id: string,
+  beforeDate: string,
+): Promise<{ order_date: string; menu_item: string | null } | null> {
+  const { data, error } = await db()
+    .from("orders")
+    .select("order_date, menu_item")
+    .eq("person_id", professor_id)
+    .lt("order_date", beforeDate)
+    .not("menu_item", "is", null)
+    .order("order_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as { order_date: string; menu_item: string | null } | null;
+}
+
 /** Set the professor's meal for a day. `location` 'BOTH' = two boxes (×2 charge). */
 export async function setProfessorMeal(input: {
   professor_id: string;

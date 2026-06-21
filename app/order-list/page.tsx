@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   getClaimForDate,
   getDayState,
+  getLastProfessorOrder,
   getOrdersForDate,
   getPeople,
   getSettings,
@@ -276,8 +277,21 @@ function ProfessorCard({
   const [price, setPrice] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [lastOrder, setLastOrder] = useState<
+    { order_date: string; menu_item: string | null } | null
+  >(null);
 
-  // Initialise from the saved meal / status, else from a random suggestion.
+  // The professor's previous meal — so we don't repeat it (he complains).
+  useEffect(() => {
+    let active = true;
+    getLastProfessorOrder(professorId, date)
+      .then((r) => { if (active) setLastOrder(r); })
+      .catch(() => { if (active) setLastOrder(null); });
+    return () => { active = false; };
+  }, [professorId, date]);
+
+  // Initialise from the saved meal / status, else from a random suggestion
+  // (avoiding last time's menu so it isn't a duplicate).
   useEffect(() => {
     if (existing) {
       setMode("order");
@@ -290,19 +304,27 @@ function ProfessorCard({
       setMode("skip");
     } else {
       setMode("order");
-      const m = randomProfMenu();
+      const m = randomProfMenu(lastOrder?.menu_item ?? undefined);
       setMenu(m.th);
       setPrice(String(m.price));
       setLocation(hint.suggest === "SKIP" ? "OR" : hint.suggest);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existing?.id, day.prof_status, date]);
+  }, [existing?.id, day.prof_status, date, lastOrder?.menu_item]);
 
   const reroll = () => {
     const m = randomProfMenu(menu);
     setMenu(m.th);
     setPrice(String(m.price));
   };
+
+  // A reminder line shown both in edit + locked views.
+  const lastOrderNote =
+    lastOrder && lastOrder.menu_item ? (
+      <p className="rounded-lg bg-debt-soft px-2 py-1 text-[11px] text-debt">
+        ครั้งก่อน ({thaiDate(lastOrder.order_date)}): <b>{lastOrder.menu_item}</b> — เลี่ยงสั่งซ้ำ
+      </p>
+    ) : null;
 
   const save = async () => {
     setErr(null);
@@ -358,6 +380,7 @@ function ProfessorCard({
           </p>
         )}
         <p className="mt-1 text-xs text-muted">เคลมแล้ว — แก้ไม่ได้</p>
+        <div className="mt-2">{lastOrderNote}</div>
       </div>
     );
   }
@@ -377,6 +400,7 @@ function ProfessorCard({
         )}
       </div>
       <p className="text-xs text-muted">{hint.text}</p>
+      {lastOrderNote}
 
       <div className="flex gap-2">
         {(["order", "skip"] as const).map((mo) => (
