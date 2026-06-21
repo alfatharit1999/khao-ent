@@ -1,4 +1,4 @@
-# Google Sheets backup / emergency mirror
+# Google Sheets backup & rollback database
 
 Keeps a live copy of the lunch system in a Google Sheet so that **if the app
 ever goes down, everyone can still see what to order** — no admin needed.
@@ -17,21 +17,18 @@ to the database, so there is zero risk to the live system.
 4. In the function dropdown pick **`setup`** → **Run**. Approve the permissions
    Google asks for (edit this sheet + fetch from the internet).
 5. Done. Auto-refresh schedule (Asia/Bangkok, ±15 min — Apps Script isn't exact):
-   - **Orders** (สัปดาห์นี้ grid + emergency "จากแอป" side): **midnight, 08:00,
-     09:00, 09:30**. Midnight also resets the emergency "กรอกเอง" columns for the
-     new day.
+   - **Order grid** (สัปดาห์นี้): **midnight, 08:00, 09:00, 09:30** (merge-update).
    - **Money & history** (DB_* + กองกลาง): **13:00 and 21:00** (twice a day).
 
 ## What it creates
 
 It only writes to **its own tabs** — your existing sheets are never touched.
 
-**Live / emergency view**
+**Live view**
 
 | Tab | Content |
 | --- | --- |
-| สัปดาห์นี้ | The **next 2 weeks** of weekdays (person × day with ส่งที่/รายการ/ราคา + totals). On weekends it jumps to the upcoming week. Refreshed ~midnight and ~09:30. |
-| 🚨 สั่งฉุกเฉิน | Two halves per member: **จากแอป** (auto — the latest saved order) and **กรอกเอง** (people type here if the app is down). The sync only rewrites the จากแอป side, so hand-typed orders are **never lost** — they reset only at midnight for the new day. |
+| สัปดาห์นี้ | The **next 2 weeks** of weekdays (person × day with ส่งที่/รายการ/ราคา + totals). On weekends it jumps to the upcoming week. **Merge-updated**: the app's order wins where it exists; where the app has nothing, an existing cell is kept — so a hand-typed order is never blanked out. Resets when a new 2-week window starts. |
 | กองกลาง (จากแอป) | The central-fund ledger with a running balance. |
 
 **Rollback database (append-only — never erased)**
@@ -49,8 +46,9 @@ Change `LOG_DAYS` in the script if you want a different window.
 ## Share it
 
 Share the sheet with the residents (**Anyone with the link → Viewer**, or
-Editor if you want them to be able to use the 🚨 สั่งฉุกเฉิน tab). The app also
-shows a "🚨 ลิงก์สำรอง" link on every screen so people can bookmark it now.
+Editor if you want them to be able to hand-edit the สัปดาห์นี้ grid when the app
+is down). The app also shows a "🚨 ลิงก์สำรอง" link on every screen so people can
+bookmark it now.
 
 ## Notes
 
