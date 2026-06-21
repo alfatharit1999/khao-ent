@@ -9,24 +9,30 @@ export type ProfMenuItem = {
 };
 
 export const PROFESSOR_MENU: ProfMenuItem[] = [
+  // — ข้าวผัด (kept to a few distinct flavours; no chicken) —
   { id: 1, th: "ข้าวผัดหมู", en: "Pork fried rice", price: 50 },
-  { id: 2, th: "ข้าวผัดไก่", en: "Chicken fried rice", price: 50 },
-  { id: 3, th: "ข้าวผัดรถไฟ(โบราณ) หมู", en: "Old-style pork fried rice", price: 55 },
+  { id: 2, th: "ข้าวผัดรถไฟ (โบราณ) หมู", en: "Old-style pork fried rice", price: 55 },
+  { id: 3, th: "ข้าวผัดไข่เค็มหมู", en: "Salted-egg pork fried rice", price: 60 },
   { id: 4, th: "ข้าวผัดกุ้ง", en: "Shrimp fried rice", price: 60 },
-  { id: 5, th: "ข้าวผัดกุนเชียง ไม่ใส่ผัก", en: "Chinese-sausage fried rice, no veg", price: 55 },
-  { id: 6, th: "ข้าวผัดกระเทียมหมู", en: "Garlic pork fried rice", price: 50 },
-  { id: 7, th: "ข้าวผัดเนื้อ", en: "Beef fried rice", price: 60 },
-  { id: 8, th: "ข้าวกระเทียมหมูกรอบ + ไข่ดาว", en: "Garlic crispy-pork + fried egg", price: 70, approx: true },
-  { id: 9, th: "ข้าวคั่วพริกเกลือหมูกรอบ + ไข่ดาว", en: "Salt-&-pepper crispy pork + fried egg", price: 85, approx: true },
-  { id: 10, th: "ข้าวคั่วพริกเกลือไก่ทอด + ไข่ดาว", en: "Salt-&-pepper fried chicken + fried egg", price: 70, approx: true },
-  { id: 11, th: "ข้าวผัดไข่เค็มหมู", en: "Salted-egg pork over rice", price: 60 },
-  { id: 12, th: "ข้าวผัดไข่เค็มกุ้ง", en: "Salted-egg shrimp over rice", price: 70 },
-  { id: 13, th: "ข้าวคะน้าหมูกรอบ", en: "Stir-fried kale + crispy pork", price: 60, approx: true },
-  { id: 14, th: "ข้าวคะน้าหมูชิ้น", en: "Stir-fried kale + sliced pork", price: 50 },
-  { id: 15, th: "ข้าวไข่เจียวหมูสับ", en: "Pork omelette over rice", price: 50 },
+  // — ผัดกับข้าว (curry / basil labelled non-spicy as requested) —
+  { id: 5, th: "ข้าวกะเพราหมู (ไม่เผ็ด) + ไข่ดาว", en: "Pork basil, non-spicy + fried egg", price: 60 },
+  { id: 6, th: "ข้าวผัดพริกแกงหมู (ไม่เผ็ด)", en: "Pork red-curry stir-fry, non-spicy", price: 50 },
+  { id: 7, th: "ข้าวผัดผงกะหรี่หมู (ไม่เผ็ด)", en: "Pork yellow-curry-powder stir-fry, non-spicy", price: 60 },
+  { id: 8, th: "ข้าวกระเทียมหมู", en: "Garlic pork over rice", price: 50 },
+  { id: 9, th: "ข้าวคั่วพริกเกลือหมู", en: "Salt-&-pepper pork over rice", price: 50 },
+  { id: 10, th: "ข้าวผัดผักรวมหมู", en: "Pork with stir-fried mixed veg", price: 50 },
+  { id: 11, th: "ข้าวไข่เจียวหมูสับ", en: "Pork omelette over rice", price: 50 },
+  // — หมูสามชั้นทอด (เมนูแนะนำ) —
+  { id: 12, th: "ข้าวหมูสามชั้นทอด", en: "Crispy pork belly over rice", price: 60 },
+  { id: 13, th: "ข้าวหมูสามชั้นทอดคั่วพริกเกลือ", en: "Salt-&-pepper crispy pork belly", price: 65 },
+  { id: 14, th: "ข้าวราดผัดพริกกะหรี่หมูสามชั้นทอด (ไม่เผ็ด)", en: "Crispy pork belly w/ curry stir-fry, non-spicy", price: 75 },
+  // — เส้น (แห้ง ไม่มีน้ำ เพิ่มความหลากหลาย) —
+  { id: 15, th: "ผัดซีอิ๊วหมู (เส้นใหญ่)", en: "Pork pad see-ew", price: 55 },
+  { id: 16, th: "สปาเก็ตตี้ผัดกะเพราหมู (ไม่เผ็ด)", en: "Pork basil spaghetti, non-spicy", price: 59 },
+  { id: 17, th: "สปาเก็ตตี้ซอสมะเขือเทศหมู", en: "Pork tomato spaghetti", price: 59 },
 ];
 
-export const PROFESSOR_RESTRICTIONS = "ไม่กินเผ็ด / ไม่ใส่ปลาหมึก";
+export const PROFESSOR_RESTRICTIONS = "ไม่เผ็ด / ไม่ใส่ปลาหมึก / ไม่กินไก่";
 export const PROFESSOR_BOX_NOTE = 'เขียนชื่อ "อ.ไพบูลย์" หน้ากล่อง';
 export const OR_DELIVERY = "OR = ตึกสยามมินทร์ ชั้น 4 วางในห้องติดกระจก (ไม่วางข้างนอก)";
 export const OPD_DELIVERY = "OPD = ENT ห้อง treatment ชั้น 5";
