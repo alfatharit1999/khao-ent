@@ -29,10 +29,9 @@ export const PROFESSOR_MENU: ProfMenuItem[] = [
   // — เส้น (แห้ง ไม่มีน้ำ เพิ่มความหลากหลาย) —
   { id: 15, th: "ผัดซีอิ๊วหมู (เส้นใหญ่)", en: "Pork pad see-ew", price: 55 },
   { id: 16, th: "ผัดซีอิ๊วหมูใส่ไข่ (เส้นใหญ่)", en: "Pork pad see-ew with egg", price: 65 },
-  { id: 17, th: "ผัดซีอิ๊วหมูกรอบ (เส้นใหญ่)", en: "Crispy-pork pad see-ew", price: 65 },
-  { id: 18, th: "สุกี้แห้งหมู (ไม่เผ็ด)", en: "Dry pork sukiyaki, non-spicy", price: 55 },
-  { id: 19, th: "สปาเก็ตตี้ผัดกะเพราหมู (ไม่เผ็ด)", en: "Pork basil spaghetti, non-spicy", price: 59 },
-  { id: 20, th: "สปาเก็ตตี้ซอสมะเขือเทศหมู", en: "Pork tomato spaghetti", price: 59 },
+  { id: 17, th: "สุกี้แห้งหมู (ไม่เผ็ด)", en: "Dry pork sukiyaki, non-spicy", price: 55 },
+  { id: 18, th: "สปาเก็ตตี้ผัดกะเพราหมู (ไม่เผ็ด)", en: "Pork basil spaghetti, non-spicy", price: 59 },
+  { id: 19, th: "สปาเก็ตตี้ซอสมะเขือเทศหมู", en: "Pork tomato spaghetti", price: 59 },
 ];
 
 export const PROFESSOR_RESTRICTIONS = "ไม่เผ็ด / ไม่ใส่ปลาหมึก / ไม่กินไก่";
