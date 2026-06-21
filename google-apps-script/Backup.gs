@@ -79,6 +79,22 @@ function recordsSync() {
   syncFund_();         // กองกลาง ledger
 }
 
+/**
+ * ONE-OFF: wipe all backup tabs (history + grid) and rebuild empty.
+ * Run this AFTER clearing the database, to start fresh. Does not delete tabs,
+ * just clears them, then re-pulls from the (now empty) database.
+ */
+function wipeBackupData() {
+  PropertiesService.getDocumentProperties().deleteProperty("weekStart");
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ["DB_ออเดอร์", "DB_คนจ่าย", "DB_เครดิต", "DB_ยอดเครดิตรายวัน", "ประวัติตาราง"].forEach((n) => {
+    const sh = ss.getSheetByName(n);
+    if (sh) sh.clear();
+  });
+  syncNow(); // rebuild สัปดาห์นี้ + กองกลาง + empty DB headers from the fresh DB
+  ss.toast("ล้างข้อมูลสำรองแล้ว ✓ เริ่มใหม่หมด");
+}
+
 // ---- helpers ---------------------------------------------------------------
 
 function api_(path) {
