@@ -29,8 +29,8 @@ It only writes to **its own tabs** — your existing sheets are never touched.
 
 | Tab | Content |
 | --- | --- |
-| สัปดาห์นี้ | This week's order grid (person × Mon–Fri with ส่งที่/รายการ/ราคา + totals). Refreshed ~midnight and ~09:30. |
-| 🚨 สั่งฉุกเฉิน | Blank form to **hand-write orders** when the app is down. Never overwritten. |
+| สัปดาห์นี้ | The **next 2 weeks** of weekdays (person × day with ส่งที่/รายการ/ราคา + totals). On weekends it jumps to the upcoming week. Refreshed ~midnight and ~09:30. |
+| 🚨 สั่งฉุกเฉิน | **Every member + today's saved order**, pre-filled (blanks for those who haven't ordered). Refreshed ~midnight and ~09:30 so it always holds the most recent save; people hand-edit it if the app is down. |
 | กองกลาง (จากแอป) | The central-fund ledger with a running balance. |
 
 **Rollback database (append-only — never erased)**

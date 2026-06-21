@@ -3,8 +3,9 @@
  * ==================================================================
  * Pulls live data from Supabase (read-only public key) into this spreadsheet.
  * Two jobs:
- *   1. EMERGENCY VIEW — a "สัปดาห์นี้" tab (this week's order grid) + a manual
- *      "🚨 สั่งฉุกเฉิน" tab, so if the app dies everyone can still order/track.
+ *   1. EMERGENCY VIEW — a "สัปดาห์นี้" tab (the next 2 weeks of weekdays) and a
+ *      "🚨 สั่งฉุกเฉิน" tab pre-filled with every member + today's saved order,
+ *      so if the app dies everyone can still order/track from the latest save.
  *   2. ROLLBACK DATABASE — append-only log tabs that never erase: every order,
  *      who paid each day, the full credit ledger, and a daily credit snapshot.
  *      If the app ever bugs out you can see the exact state at any past time.
@@ -31,7 +32,6 @@ const LOG_DAYS = 60; // how many recent days of orders/credits to keep in sync
 const DOW_TH = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 
 function setup() {
-  setupEmergencyTab_();
   syncNow(); // build everything immediately
 
   // Clear any triggers we created before, then set the schedule fresh.
@@ -59,9 +59,10 @@ function syncNow() {
   syncLogs();
 }
 
-/** Live this-week grid (overwritten). Trigger: midnight + 09:30. */
+/** 2-week grid + today's pre-filled emergency list. Trigger: midnight + 09:30. */
 function syncWeekTab() {
   syncWeek_();
+  fillEmergencyToday_();
 }
 
 /** Append-only records + fund. Trigger: every 8 hours. */
@@ -87,6 +88,17 @@ function api_(path) {
 function ymd_(d) { return Utilities.formatDate(d, TZ, "yyyy-MM-dd"); }
 function hhmm_() { return Utilities.formatDate(new Date(), TZ, "HH:mm"); }
 function sinceYmd_() { const d = new Date(); d.setDate(d.getDate() - LOG_DAYS); return ymd_(d); }
+
+// Today's calendar date in Bangkok, as a plain local Date (for weekday math).
+function todayParts_() {
+  const s = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd").split("-");
+  return new Date(Number(s[0]), Number(s[1]) - 1, Number(s[2]));
+}
+function fmtLocal_(d) {
+  const m = ("0" + (d.getMonth() + 1)).slice(-2);
+  const da = ("0" + d.getDate()).slice(-2);
+  return d.getFullYear() + "-" + m + "-" + da;
+}
 
 function mondayOf_(d) {
   const off = (d.getDay() + 6) % 7;
@@ -128,14 +140,22 @@ function upsert_(name, headers, records, keyOfRow) {
 // ---- TAB 1: this week's grid (live, overwritten) ---------------------------
 
 function syncWeek_() {
-  const mon = mondayOf_(new Date());
+  // Two weeks of weekdays. On Sat/Sun jump to the upcoming week (the work week
+  // just finished), so you always see the days people are about to order for.
+  const base = todayParts_();
+  const mon = mondayOf_(base);
+  if (base.getDay() === 0 || base.getDay() === 6) mon.setDate(mon.getDate() + 7);
   const dates = [];
-  for (let i = 0; i < 5; i++) { const d = new Date(mon); d.setDate(mon.getDate() + i); dates.push(ymd_(d)); }
+  for (let w = 0; w < 2; w++) {
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(mon); d.setDate(mon.getDate() + w * 7 + i); dates.push(fmtLocal_(d));
+    }
+  }
 
   const people = api_("people?select=name,category,sort_order&active=eq.true&order=sort_order");
   const orders = api_(
     "orders?select=order_date,location,menu_item,price,people(name)&order_date=gte." +
-    dates[0] + "&order_date=lte." + dates[4]);
+    dates[0] + "&order_date=lte." + dates[dates.length - 1]);
   const settings = api_("settings?select=key,value");
   const set = {}; settings.forEach((s) => { set[s.key] = s.value; });
 
@@ -147,10 +167,10 @@ function syncWeek_() {
     map[n][o.order_date] = o;
   });
 
-  const COLS = 1 + 5 * 3 + 1; // ชื่อ + (loc,menu,price)*5 + รวม
+  const COLS = 1 + dates.length * 3 + 1; // ชื่อ + (loc,menu,price)*days + รวม
   const rows = [];
   const title = new Array(COLS).fill("");
-  title[0] = "ตารางสั่งข้าวสัปดาห์นี้ — อัปเดต " + hhmm_();
+  title[0] = "ตารางสั่งข้าว 2 สัปดาห์ — อัปเดต " + hhmm_();
   rows.push(title);
 
   const h1 = ["ชื่อ"];
@@ -163,7 +183,7 @@ function syncWeek_() {
   h2.push("");
   rows.push(h2);
 
-  const daySum = [0, 0, 0, 0, 0];
+  const daySum = new Array(dates.length).fill(0);
   people.forEach((p) => {
     const row = [p.name];
     let total = 0;
@@ -295,16 +315,36 @@ function syncFund_() {
   sh.setFrozenRows(1);
 }
 
-// ---- manual emergency order form (set up once, never overwritten) -----------
+// ---- emergency order list: every member + today's saved order --------------
+// Refreshed at midnight + 09:30. Everyone is listed; people who have ordered are
+// pre-filled (the most recent save), the rest are blank to type into by hand if
+// the app is down — so nobody has to re-enter everything.
 
-function setupEmergencyTab_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (ss.getSheetByName("🚨 สั่งฉุกเฉิน")) return;
-  const sh = ss.insertSheet("🚨 สั่งฉุกเฉิน", 0);
-  sh.getRange(1, 1, 2, 4).setValues([
-    ["🚨 สั่งฉุกเฉิน — ใช้ตอนแอปล่ม พิมพ์ออเดอร์ตรงนี้ได้เลย", "", "", ""],
-    ["ชื่อ", "ที่ส่ง (OR/OPD)", "เมนู", "ราคา (ถ้ารู้)"],
-  ]);
+function fillEmergencyToday_() {
+  const today = ymd_(new Date());
+  const people = api_("people?select=name,sort_order&active=eq.true&order=sort_order");
+  const orders = api_(
+    "orders?select=location,menu_item,price,people(name)&order_date=eq." + today);
+  const map = {};
+  orders.forEach((o) => { map[pname_(o)] = o; });
+
+  const rows = [
+    ["🚨 สั่งฉุกเฉิน — ออเดอร์วันนี้ " + today + " · อัปเดต " + hhmm_() +
+      " — ถ้าแอปล่ม พิมพ์/แก้ตรงนี้ได้เลย", "", "", ""],
+    ["ชื่อ", "ส่งที่ (OR/OPD)", "เมนู", "ราคา (ถ้ารู้)"],
+  ];
+  people.forEach((p) => {
+    const o = map[p.name];
+    rows.push(
+      o
+        ? [p.name, o.location || "", o.menu_item || "", priced_(o) ? Number(o.price) : ""]
+        : [p.name, "", "", ""],
+    );
+  });
+
+  const sh = sheet_("🚨 สั่งฉุกเฉิน");
+  sh.clear();
+  sh.getRange(1, 1, rows.length, 4).setValues(rows);
   sh.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#fde8e8");
   sh.getRange(2, 1, 1, 4).setFontWeight("bold").setBackground("#f3f4f6");
   sh.setFrozenRows(2);
