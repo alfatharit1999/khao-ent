@@ -196,11 +196,16 @@ function removeOldEmergencyTab_() {
 }
 
 function syncWeek_() {
-  // Two weeks of weekdays. On Sat/Sun jump to the upcoming week (the work week
-  // just finished), so you always see the days people are about to order for.
+  // Fixed 2-week blocks (changes itself every fortnight, not weekly). Blocks are
+  // aligned to a reference Monday; on Sat/Sun we look at the upcoming week so the
+  // new block appears right before people start ordering for it.
+  const ANCHOR = new Date(2024, 0, 1); // a Monday — fortnight blocks align to this
   const base = todayParts_();
-  const mon = mondayOf_(base);
-  if (base.getDay() === 0 || base.getDay() === 6) mon.setDate(mon.getDate() + 7);
+  const eff = mondayOf_(base);
+  if (base.getDay() === 0 || base.getDay() === 6) eff.setDate(eff.getDate() + 7);
+  const weeks = Math.round((eff.getTime() - ANCHOR.getTime()) / (7 * 86400000));
+  const mon = new Date(ANCHOR);
+  mon.setDate(ANCHOR.getDate() + Math.floor(weeks / 2) * 14); // start of this fortnight
   const dates = [];
   for (let w = 0; w < 2; w++) {
     for (let i = 0; i < 5; i++) {
