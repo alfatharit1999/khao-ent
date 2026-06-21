@@ -14,7 +14,7 @@ export const PROFESSOR_MENU: ProfMenuItem[] = [
   { id: 2, th: "ข้าวผัดรถไฟ (โบราณ) หมู", en: "Old-style pork fried rice", price: 55 },
   { id: 3, th: "ข้าวผัดไข่เค็มหมู", en: "Salted-egg pork fried rice", price: 60 },
   { id: 4, th: "ข้าวผัดกุ้ง", en: "Shrimp fried rice", price: 60 },
-  // — ผัดกับข้าว (curry / basil labelled non-spicy as requested) —
+  // — ผัดกับข้าว หมู (curry / basil labelled non-spicy as requested) —
   { id: 5, th: "ข้าวกะเพราหมู (ไม่เผ็ด) + ไข่ดาว", en: "Pork basil, non-spicy + fried egg", price: 60 },
   { id: 6, th: "ข้าวผัดพริกแกงหมู (ไม่เผ็ด)", en: "Pork red-curry stir-fry, non-spicy", price: 50 },
   { id: 7, th: "ข้าวผัดผงกะหรี่หมู (ไม่เผ็ด)", en: "Pork yellow-curry-powder stir-fry, non-spicy", price: 60 },
@@ -22,16 +22,22 @@ export const PROFESSOR_MENU: ProfMenuItem[] = [
   { id: 9, th: "ข้าวคั่วพริกเกลือหมู", en: "Salt-&-pepper pork over rice", price: 50 },
   { id: 10, th: "ข้าวผัดผักรวมหมู", en: "Pork with stir-fried mixed veg", price: 50 },
   { id: 11, th: "ข้าวไข่เจียวหมูสับ", en: "Pork omelette over rice", price: 50 },
+  // — ผัดกับข้าว กุ้ง —
+  { id: 12, th: "ข้าวกะเพรากุ้ง (ไม่เผ็ด) + ไข่ดาว", en: "Shrimp basil, non-spicy + fried egg", price: 70 },
+  { id: 13, th: "ข้าวผัดพริกแกงกุ้ง (ไม่เผ็ด)", en: "Shrimp red-curry stir-fry, non-spicy", price: 60 },
+  { id: 14, th: "ข้าวผัดผงกะหรี่กุ้ง (ไม่เผ็ด)", en: "Shrimp yellow-curry-powder stir-fry, non-spicy", price: 70 },
+  { id: 15, th: "ข้าวกระเทียมกุ้ง", en: "Garlic shrimp over rice", price: 60 },
+  { id: 16, th: "ข้าวคั่วพริกเกลือกุ้ง", en: "Salt-&-pepper shrimp over rice", price: 65 },
+  { id: 17, th: "ข้าวผัดไข่เค็มกุ้ง", en: "Salted-egg shrimp over rice", price: 70 },
   // — หมูสามชั้นทอด (เมนูแนะนำ) —
-  { id: 12, th: "ข้าวหมูสามชั้นทอด", en: "Crispy pork belly over rice", price: 60 },
-  { id: 13, th: "ข้าวหมูสามชั้นทอดคั่วพริกเกลือ", en: "Salt-&-pepper crispy pork belly", price: 65 },
-  { id: 14, th: "ข้าวราดผัดพริกกะหรี่หมูสามชั้นทอด (ไม่เผ็ด)", en: "Crispy pork belly w/ curry stir-fry, non-spicy", price: 75 },
+  { id: 18, th: "ข้าวหมูสามชั้นทอด", en: "Crispy pork belly over rice", price: 60 },
+  { id: 19, th: "ข้าวหมูสามชั้นทอดคั่วพริกเกลือ", en: "Salt-&-pepper crispy pork belly", price: 65 },
   // — เส้น (แห้ง ไม่มีน้ำ เพิ่มความหลากหลาย) —
-  { id: 15, th: "ผัดซีอิ๊วหมู (เส้นใหญ่)", en: "Pork pad see-ew", price: 55 },
-  { id: 16, th: "ผัดซีอิ๊วหมูใส่ไข่ (เส้นใหญ่)", en: "Pork pad see-ew with egg", price: 65 },
-  { id: 17, th: "สุกี้แห้งหมู (ไม่เผ็ด)", en: "Dry pork sukiyaki, non-spicy", price: 55 },
-  { id: 18, th: "สปาเก็ตตี้ผัดกะเพราหมู (ไม่เผ็ด)", en: "Pork basil spaghetti, non-spicy", price: 59 },
-  { id: 19, th: "สปาเก็ตตี้ซอสมะเขือเทศหมู", en: "Pork tomato spaghetti", price: 59 },
+  { id: 20, th: "ผัดซีอิ๊วหมู (เส้นใหญ่)", en: "Pork pad see-ew", price: 55 },
+  { id: 21, th: "ผัดซีอิ๊วหมูใส่ไข่ (เส้นใหญ่)", en: "Pork pad see-ew with egg", price: 65 },
+  { id: 22, th: "สุกี้แห้งหมู (ไม่เผ็ด)", en: "Dry pork sukiyaki, non-spicy", price: 55 },
+  { id: 23, th: "สปาเก็ตตี้ผัดกะเพราหมู (ไม่เผ็ด)", en: "Pork basil spaghetti, non-spicy", price: 59 },
+  { id: 24, th: "สปาเก็ตตี้ซอสมะเขือเทศหมู", en: "Pork tomato spaghetti", price: 59 },
 ];
 
 export const PROFESSOR_RESTRICTIONS = "ไม่เผ็ด / ไม่ใส่ปลาหมึก / ไม่กินไก่";
