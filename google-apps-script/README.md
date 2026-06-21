@@ -39,6 +39,7 @@ It only writes to **its own tabs** — your existing sheets are never touched.
 | DB_คนจ่าย | Who ordered/paid each day, total paid, credit rolled, approved? |
 | DB_เครดิต | Full credit ledger: top-ups, roll-overs, adjustments, withdrawals. |
 | DB_ยอดเครดิตรายวัน | A **daily snapshot** of everyone's balance — so you can see the exact state on any past day and roll back if the app bugs out. |
+| ประวัติตาราง | A **copy of each 2-week order grid**, archived (labelled + dated) just before a new fortnight resets the live grid — so every past fortnight's orders are kept for reconciling credits. |
 
 The DB tabs keep the last 60 days in sync (older rows stay frozen as history).
 Change `LOG_DAYS` in the script if you want a different window.

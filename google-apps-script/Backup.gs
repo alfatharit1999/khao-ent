@@ -8,8 +8,9 @@
  *      is already in the cell is kept — so a hand-typed order is never replaced
  *      with a blank. The grid resets when a new 2-week window starts.
  *   2. ROLLBACK DATABASE — append-only log tabs that never erase: every order,
- *      who paid each day, the full credit ledger, and a daily credit snapshot.
- *      If the app ever bugs out you can see the exact state at any past time.
+ *      who paid each day, the full credit ledger, a daily credit snapshot, and
+ *      a copy of each finished 2-week grid ("ประวัติตาราง"). If the app ever
+ *      bugs out you can see the exact state at any past time.
  *
  * It only READS from Supabase and only writes to its OWN tabs — your existing
  * sheets are never touched.
@@ -113,6 +114,13 @@ function dateLabel_(iso) {
   const dt = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
   return DOW_TH[dt.getDay()] + " " + Number(p[2]) + "/" + Number(p[1]);
 }
+function addDaysISO_(iso, n) {
+  const p = iso.split("-");
+  return fmtLocal_(new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + n));
+}
+function rangeLabel_(startISO) {
+  return dateLabel_(startISO) + " – " + dateLabel_(addDaysISO_(startISO, 13));
+}
 function sheet_(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   return ss.getSheetByName(name) || ss.insertSheet(name);
@@ -164,6 +172,22 @@ function readWeekGrid_(sh, dayCount) {
   return prev;
 }
 
+/** Copy the finished grid to an append-only history tab, labelled + dated. */
+function archiveWeekGrid_(sh, label) {
+  const src = sh.getDataRange().getValues();
+  if (!src.length) return;
+  const width = src[0].length;
+  const arch = sheet_("ประวัติตาราง");
+  const start = arch.getLastRow();
+  const labelRow = new Array(width).fill("");
+  labelRow[0] = "📅 " + label + " · เก็บเมื่อ " + ymd_(new Date()) + " " + hhmm_();
+  const block = [labelRow].concat(src).concat([new Array(width).fill("")]);
+  arch.getRange(start + 1, 1, block.length, width).setValues(
+    block.map((r) => { const c = r.slice(); while (c.length < width) c.push(""); return c.slice(0, width); }),
+  );
+  arch.getRange(start + 1, 1, 1, width).setFontWeight("bold").setBackground("#fff3cd");
+}
+
 /** Delete the retired manual emergency tab if it's still around. */
 function removeOldEmergencyTab_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -202,7 +226,13 @@ function syncWeek_() {
   const sh = sheet_("สัปดาห์นี้");
   // Same 2-week window as last time? Then keep manual cells; else start fresh.
   const props = PropertiesService.getDocumentProperties();
-  const sameWindow = props.getProperty("weekStart") === dates[0] && sh.getLastRow() >= 4;
+  const prevStart = props.getProperty("weekStart");
+  const sameWindow = prevStart === dates[0] && sh.getLastRow() >= 4;
+  // New window → archive the finished grid before resetting, so the fortnight's
+  // orders are kept for ever (to reconcile credits if the app is down).
+  if (!sameWindow && prevStart && sh.getLastRow() >= 4) {
+    archiveWeekGrid_(sh, "ออเดอร์ " + rangeLabel_(prevStart));
+  }
   const prev = sameWindow ? readWeekGrid_(sh, dates.length) : {};
 
   const COLS = 1 + dates.length * 3 + 1; // ชื่อ + (loc,menu,price)*days + รวม
