@@ -124,36 +124,6 @@ export async function getSpendBetween(
   return out;
 }
 
-/**
- * Roll-over: person fronted cash at the treatment room for `date`.
- * Public action (no admin PIN) — RLS allows inserting front_credit only.
- * `amount` is what they paid for OTHERS (their own meal + the professor are
- * already excluded by the caller). Their own order is flagged `fronted` so it
- * isn't also charged to them — no double-count.
- */
-export async function addFrontCredit(
-  person_id: string,
-  amount: number,
-  date: string,
-): Promise<void> {
-  const s = db();
-  const { error: cErr } = await s.from("credits").insert({
-    person_id,
-    date,
-    type: "front_credit",
-    amount,
-    note: `สำรองจ่ายค่าข้าว ${date} (ออกแทนคนอื่น)`,
-  });
-  if (cErr) throw cErr;
-  // Mark ONLY the fronter's own order for the day as settled.
-  const { error: oErr } = await s
-    .from("orders")
-    .update({ fronted: true })
-    .eq("person_id", person_id)
-    .eq("order_date", date);
-  if (oErr) throw oErr;
-}
-
 // ---- Professor daily meal + day seal (managed by the order person) --------
 
 export async function getDayState(date: string): Promise<import("./types").DayState> {
@@ -238,17 +208,6 @@ export async function skipProfessor(
       { onConflict: "date" },
     );
   if (sErr) throw sErr;
-}
-
-/** Seal / unseal a day (gate for copying the order to the restaurant). */
-export async function setSeal(date: string, sealed: boolean): Promise<void> {
-  const { error } = await db()
-    .from("day_state")
-    .upsert(
-      { date, sealed, updated_at: new Date().toISOString() },
-      { onConflict: "date" },
-    );
-  if (error) throw error;
 }
 
 export async function getFundEntries(): Promise<FundEntry[]> {
@@ -486,20 +445,6 @@ export async function revertClaim(input: {
     .delete()
     .eq("id", input.id);
   if (dErr) throw dErr;
-}
-
-export async function getFrontCreditForDate(
-  date: string,
-): Promise<{ person_id: string; amount: number } | null> {
-  const { data, error } = await db()
-    .from("credits")
-    .select("person_id, amount")
-    .eq("date", date)
-    .eq("type", "front_credit")
-    .limit(1)
-    .maybeSingle();
-  if (error) throw error;
-  return data as { person_id: string; amount: number } | null;
 }
 
 export async function getSettings(): Promise<Record<string, string>> {
