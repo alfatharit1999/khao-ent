@@ -17,9 +17,10 @@ to the database, so there is zero risk to the live system.
 4. In the function dropdown pick **`setup`** → **Run**. Approve the permissions
    Google asks for (edit this sheet + fetch from the internet).
 5. Done. Auto-refresh schedule (Asia/Bangkok, ±15 min — Apps Script isn't exact):
-   - **สัปดาห์นี้** grid: **~midnight** (orders placed before bed) and **~09:30**
-     (the order cutoff, after people wake up).
-   - **Records** (DB_* + กองกลาง): **every 8 hours**.
+   - **Orders** (สัปดาห์นี้ grid + emergency "จากแอป" side): **midnight, 08:00,
+     09:00, 09:30**. Midnight also resets the emergency "กรอกเอง" columns for the
+     new day.
+   - **Money & history** (DB_* + กองกลาง): **13:00 and 21:00** (twice a day).
 
 ## What it creates
 
@@ -30,7 +31,7 @@ It only writes to **its own tabs** — your existing sheets are never touched.
 | Tab | Content |
 | --- | --- |
 | สัปดาห์นี้ | The **next 2 weeks** of weekdays (person × day with ส่งที่/รายการ/ราคา + totals). On weekends it jumps to the upcoming week. Refreshed ~midnight and ~09:30. |
-| 🚨 สั่งฉุกเฉิน | **Every member + today's saved order**, pre-filled (blanks for those who haven't ordered). Refreshed ~midnight and ~09:30 so it always holds the most recent save; people hand-edit it if the app is down. |
+| 🚨 สั่งฉุกเฉิน | Two halves per member: **จากแอป** (auto — the latest saved order) and **กรอกเอง** (people type here if the app is down). The sync only rewrites the จากแอป side, so hand-typed orders are **never lost** — they reset only at midnight for the new day. |
 | กองกลาง (จากแอป) | The central-fund ledger with a running balance. |
 
 **Rollback database (append-only — never erased)**

@@ -16,9 +16,10 @@
  * ONE-TIME SETUP
  *   1. Extensions → Apps Script. Paste this whole file. Save.
  *   2. Function dropdown → `setup` → Run. Approve permissions.
- *   3. Done. Schedule (Asia/Bangkok):
- *        • This-week grid: ~midnight and ~09:30 (the order cutoff).
- *        • Records (orders/payments/credits/snapshot/fund): every 8 hours.
+ *   3. Done. Schedule (Asia/Bangkok, ±15 min):
+ *        • Orders (2-week grid + emergency "จากแอป" side): midnight, 08:00,
+ *          09:00, 09:30. Midnight also resets the emergency "กรอกเอง" columns.
+ *        • Money & history: 13:00 and 21:00.
  *
  * Manual refresh any time: run `syncNow`.
  */
@@ -32,41 +33,51 @@ const LOG_DAYS = 60; // how many recent days of orders/credits to keep in sync
 const DOW_TH = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 
 function setup() {
-  syncNow(); // build everything immediately
+  syncNow(); // build everything immediately (full emergency rebuild)
 
   // Clear any triggers we created before, then set the schedule fresh.
-  const mine = ["syncNow", "syncWeekTab", "syncLogs"];
+  const mine = ["syncNow", "syncWeekTab", "syncLogs", "midnightSync", "morningSync", "recordsSync"];
   ScriptApp.getProjectTriggers().forEach((t) => {
     if (mine.indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t);
   });
 
-  // This-week order grid: at midnight (people ordering before bed) and at the
-  // 09:30 cutoff (people ordering after they wake up). (±15 min, Apps Script.)
-  ScriptApp.newTrigger("syncWeekTab").timeBased().atHour(0).nearMinute(5).everyDays(1).create();
-  ScriptApp.newTrigger("syncWeekTab").timeBased().atHour(9).nearMinute(30).everyDays(1).create();
+  // Orders — midnight starts a fresh emergency form for the new day; the
+  // morning runs refresh the "จากแอป" side only (manual entries are kept).
+  ScriptApp.newTrigger("midnightSync").timeBased().atHour(0).nearMinute(5).everyDays(1).create();
+  ScriptApp.newTrigger("morningSync").timeBased().atHour(8).nearMinute(0).everyDays(1).create();
+  ScriptApp.newTrigger("morningSync").timeBased().atHour(9).nearMinute(0).everyDays(1).create();
+  ScriptApp.newTrigger("morningSync").timeBased().atHour(9).nearMinute(30).everyDays(1).create();
 
-  // Records (orders/payments/credits/snapshots/fund): every 8 hours.
-  ScriptApp.newTrigger("syncLogs").timeBased().everyHours(8).create();
+  // Money & history — twice a day only (after lunch + evening), light load.
+  ScriptApp.newTrigger("recordsSync").timeBased().atHour(13).nearMinute(0).everyDays(1).create();
+  ScriptApp.newTrigger("recordsSync").timeBased().atHour(21).nearMinute(0).everyDays(1).create();
 
   SpreadsheetApp.getActiveSpreadsheet().toast(
-    "ตั้งค่าเรียบร้อย ✓ ตารางอัปเดตเที่ยงคืน+9:30 · บันทึกทุก 8 ชม.",
+    "ตั้งค่าเรียบร้อย ✓ ออเดอร์: เที่ยงคืน/8:00/9:00/9:30 · เงิน: 13:00/21:00",
   );
 }
 
-/** Everything at once (used on setup + as a manual "refresh now"). */
+/** Manual "refresh everything now" — also used by setup (rebuilds emergency). */
 function syncNow() {
-  syncWeekTab();
-  syncLogs();
-}
-
-/** 2-week grid + today's pre-filled emergency list. Trigger: midnight + 09:30. */
-function syncWeekTab() {
   syncWeek_();
-  fillEmergencyToday_();
+  resetEmergency_();
+  recordsSync();
 }
 
-/** Append-only records + fund. Trigger: every 8 hours. */
-function syncLogs() {
+/** Midnight: refresh the 2-week grid + start a fresh emergency form. */
+function midnightSync() {
+  syncWeek_();
+  resetEmergency_();
+}
+
+/** 8:00 / 9:00 / 9:30: refresh grid + the "จากแอป" columns only (keep manual). */
+function morningSync() {
+  syncWeek_();
+  refreshEmergencyAppData_();
+}
+
+/** Money & history (twice a day). */
+function recordsSync() {
   logOrders_();        // DB: every order (append-only)
   logClaims_();        // DB: who paid each day (append-only)
   logCredits_();       // DB: full credit ledger (append-only)
@@ -315,38 +326,69 @@ function syncFund_() {
   sh.setFrozenRows(1);
 }
 
-// ---- emergency order list: every member + today's saved order --------------
-// Refreshed at midnight + 09:30. Everyone is listed; people who have ordered are
-// pre-filled (the most recent save), the rest are blank to type into by hand if
-// the app is down — so nobody has to re-enter everything.
+// ---- emergency order list --------------------------------------------------
+// Two halves per member: "จากแอป" (auto, the latest saved order) and "กรอกเอง"
+// (people type here if the app is down). The morning refresh only rewrites the
+// "จากแอป" columns, so hand-typed orders are never lost. The whole thing resets
+// once a day at midnight for the new day.
 
-function fillEmergencyToday_() {
+const EMERGENCY_TAB = "🚨 สั่งฉุกเฉิน";
+
+function emergencyTitle_(today) {
+  return "🚨 สั่งฉุกเฉิน — วันนี้ " + today + " · อัปเดตจากแอป " + hhmm_() +
+    "   |   ช่อง “กรอกเอง” พิมพ์เองตอนแอปล่ม (ล้างเฉพาะเที่ยงคืน)";
+}
+
+/** Full rebuild — clears manual columns. Use at midnight / on setup. */
+function resetEmergency_() {
   const today = ymd_(new Date());
   const people = api_("people?select=name,sort_order&active=eq.true&order=sort_order");
-  const orders = api_(
-    "orders?select=location,menu_item,price,people(name)&order_date=eq." + today);
+  const orders = api_("orders?select=location,menu_item,price,people(name)&order_date=eq." + today);
   const map = {};
   orders.forEach((o) => { map[pname_(o)] = o; });
 
   const rows = [
-    ["🚨 สั่งฉุกเฉิน — ออเดอร์วันนี้ " + today + " · อัปเดต " + hhmm_() +
-      " — ถ้าแอปล่ม พิมพ์/แก้ตรงนี้ได้เลย", "", "", ""],
-    ["ชื่อ", "ส่งที่ (OR/OPD)", "เมนู", "ราคา (ถ้ารู้)"],
+    [emergencyTitle_(today), "", "", "", "", "", ""],
+    ["ชื่อ", "แอป·ส่งที่", "แอป·เมนู", "แอป·ราคา", "กรอกเอง·ส่งที่", "กรอกเอง·เมนู", "กรอกเอง·ราคา"],
   ];
   people.forEach((p) => {
     const o = map[p.name];
-    rows.push(
-      o
-        ? [p.name, o.location || "", o.menu_item || "", priced_(o) ? Number(o.price) : ""]
-        : [p.name, "", "", ""],
-    );
+    rows.push([
+      p.name,
+      o ? o.location || "" : "", o ? o.menu_item || "" : "", o && priced_(o) ? Number(o.price) : "",
+      "", "", "",
+    ]);
   });
 
-  const sh = sheet_("🚨 สั่งฉุกเฉิน");
+  const sh = sheet_(EMERGENCY_TAB);
   sh.clear();
-  sh.getRange(1, 1, rows.length, 4).setValues(rows);
-  sh.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#fde8e8");
-  sh.getRange(2, 1, 1, 4).setFontWeight("bold").setBackground("#f3f4f6");
+  sh.getRange(1, 1, rows.length, 7).setValues(rows);
+  sh.getRange(1, 1, 1, 7).setFontWeight("bold").setBackground("#fde8e8");
+  sh.getRange(2, 1, 1, 7).setFontWeight("bold");
+  sh.getRange(2, 2, 1, 3).setBackground("#eef2ff"); // app columns
+  sh.getRange(2, 5, 1, 3).setBackground("#e8f5e9"); // manual columns
   sh.setFrozenRows(2);
-  sh.setColumnWidth(3, 240);
+  sh.setFrozenColumns(1);
+  sh.setColumnWidth(3, 200);
+  sh.setColumnWidth(6, 200);
+}
+
+/** Refresh ONLY the "จากแอป" columns (B:D) — never touches manual entries. */
+function refreshEmergencyAppData_() {
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(EMERGENCY_TAB);
+  if (!sh || sh.getLastRow() < 3) { resetEmergency_(); return; }
+
+  const today = ymd_(new Date());
+  const orders = api_("orders?select=location,menu_item,price,people(name)&order_date=eq." + today);
+  const map = {};
+  orders.forEach((o) => { map[pname_(o)] = o; });
+
+  const n = sh.getLastRow() - 2;
+  const names = sh.getRange(3, 1, n, 1).getValues();
+  const out = names.map((r) => {
+    const o = map[r[0]];
+    return o ? [o.location || "", o.menu_item || "", priced_(o) ? Number(o.price) : ""] : ["", "", ""];
+  });
+  sh.getRange(3, 2, n, 3).setValues(out); // columns B:D only
+  sh.getRange(1, 1).setValue(emergencyTitle_(today));
 }
