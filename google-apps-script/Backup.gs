@@ -291,13 +291,53 @@ function syncWeek_() {
   sh.getRange(1, 1, rows.length, COLS).setValues(rows.map((r) => {
     const c = r.slice(); while (c.length < COLS) c.push(""); return c.slice(0, COLS);
   }));
-  sh.getRange(1, 1, 1, COLS).setFontWeight("bold").setBackground("#fde9dc");
-  sh.getRange(2, 1, 2, COLS).setFontWeight("bold").setBackground("#f3f4f6");
+  sh.getRange(1, 1, rows.length, COLS).setBackgrounds(
+    weekColors_(rows.length, dates.length, COLS, people.length),
+  );
+  sh.getRange(1, 1, 3, COLS).setFontWeight("bold");          // title + 2 header rows
+  sh.getRange(people.length + 4, 1, 1, COLS).setFontWeight("bold"); // รวมประจำวัน
   sh.setFrozenRows(3);
   sh.setFrozenColumns(1);
   // move this tab to the front
   SpreadsheetApp.getActiveSpreadsheet().setActiveSheet(sh);
   SpreadsheetApp.getActiveSpreadsheet().moveActiveSheet(1);
+}
+
+// Cosmetic only: each weekday a soft colour, with white stripes between rows so
+// each person's line is easy to follow. Affects nothing but the look.
+function weekColors_(totalRows, dayCount, COLS, peopleCount) {
+  const HEAD = ["#ffd966", "#f6b8c5", "#b6d7a8", "#9fc5e8", "#d5a6e0"]; // Mon..Fri
+  const BODY = ["#fff2cc", "#fde2e4", "#e2f0d9", "#dbe9f5", "#ede0f5"];
+  const WHITE = "#ffffff", GREY = "#f3f4f6", NEUTRAL = "#f1f3f4";
+  const dataStart = 3, dataEnd = 2 + peopleCount, sumRow = 3 + peopleCount;
+
+  const bg = [];
+  for (let r = 0; r < totalRows; r++) {
+    const row = new Array(COLS).fill(WHITE);
+    if (r === 0) {
+      row.fill("#fde9dc");                                   // title
+    } else if (r === 1) {
+      row[0] = GREY; row[COLS - 1] = GREY;                   // date header
+      for (let di = 0; di < dayCount; di++) {
+        const c = HEAD[di % 5];
+        row[1 + di * 3] = c; row[2 + di * 3] = c; row[3 + di * 3] = c;
+      }
+    } else if (r === 2) {
+      row.fill(GREY);                                        // sub-header
+    } else if (r >= dataStart && r <= dataEnd) {
+      const white = (r - dataStart) % 2 === 1;               // every other row blank
+      row[0] = white ? WHITE : "#f8f9fa";
+      row[COLS - 1] = white ? WHITE : NEUTRAL;
+      for (let di = 0; di < dayCount; di++) {
+        const c = white ? WHITE : BODY[di % 5];
+        row[1 + di * 3] = c; row[2 + di * 3] = c; row[3 + di * 3] = c;
+      }
+    } else if (r === sumRow) {
+      row.fill("#fff3cd");                                   // daily totals
+    }
+    bg.push(row);
+  }
+  return bg;
 }
 
 // ---- DB tabs (append-only) -------------------------------------------------
