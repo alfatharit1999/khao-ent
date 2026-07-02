@@ -67,8 +67,9 @@ export default function ClaimPage() {
   }
 
   const residentOrders = orders.filter((o) => o.people?.category !== "professor");
-  const profOrder = orders.find((o) => o.people?.category === "professor");
-  const grandExclProf = residentOrders.reduce((s, o) => s + Number(o.price ?? 0), 0);
+  // Everyone's meals (incl. the professor — he pays from his own balance like
+  // anyone, and the claimer fronted his cash so it's reimbursed too).
+  const grandAll = orders.reduce((s, o) => s + Number(o.price ?? 0), 0);
 
   const ordererName =
     people.find((p) => p.id === (claim?.orderer_id ?? ordererId))?.name ?? "";
@@ -78,7 +79,7 @@ export default function ClaimPage() {
           residentOrders.find((o) => o.person_id === claim.orderer_id)?.price ?? 0,
         )
       : 0;
-  const rolled = Math.max(0, grandExclProf - ownPrice);
+  const rolled = Math.max(0, grandAll - ownPrice);
 
   // Everyone (residents + professor if ordering) must be priced before claiming.
   const pendingPrice = orders.filter((o) => o.price == null);
@@ -263,12 +264,12 @@ export default function ClaimPage() {
               />
               <div className="rounded-xl bg-background p-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted">ค่าข้าวคนอื่น (ไม่รวมตัวเอง/อาจารย์)</span>
+                  <span className="text-muted">ค่าข้าวคนอื่น (ไม่รวมข้าวตัวเอง)</span>
                   <span className="font-semibold text-credit">{baht(rolled)}</span>
                 </div>
                 <p className="mt-1 text-[11px] text-muted">
                   ยอดนี้จะโรลเข้าเครดิตของ <b>{ordererName || "คนสั่ง"}</b> ทันที
-                  (ข้าวตัวเองถือว่าจ่ายเองแล้ว · ข้าวอาจารย์ตัดออก)
+                  (ข้าวตัวเองถือว่าจ่ายเองแล้ว · รวมข้าวอาจารย์ที่ออกแทนด้วย)
                 </p>
               </div>
               {err ? <p className="text-xs text-debt">{err}</p> : null}
