@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { OrderLocation, Person } from "@/lib/types";
 import { upsertMyOrder, deleteMyOrder, OrderWithPerson } from "@/lib/queries";
 import { baht, isOrderLocked, ORDER_CUTOFF } from "@/lib/format";
+import { randomResidentMenu } from "@/lib/residentMenu";
 
 export function OrderForm({
   me,
@@ -134,8 +135,22 @@ export function OrderForm({
         ))}
       </div>
 
-      <label className="mb-1 block text-xs text-muted">เมนู</label>
+      <div className="mb-1 flex items-center justify-between">
+        <label htmlFor="my-order-menu" className="text-xs text-muted">เมนู</label>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            setMenu(randomResidentMenu(menu));
+            setPrice("");
+          }}
+          className="text-xs font-medium text-brand disabled:opacity-50"
+        >
+          🎲 สุ่มเมนู
+        </button>
+      </div>
       <input
+        id="my-order-menu"
         value={menu}
         onChange={(e) => setMenu(e.target.value)}
         placeholder="เช่น ข้าวไข่ข้นหมูสับ"
