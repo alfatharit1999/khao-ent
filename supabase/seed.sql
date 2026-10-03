@@ -43,6 +43,6 @@ insert into settings (key, value) values
   ('or_note',  'OR = ส่งตึกสยามมินทร์ชั้น 4 วางในห้องติดกระจก OR (ไม่วางไว้ข้างนอก)'),
   ('opd_note', 'OPD ENT ห้อง treatment ชั้น 5'),
   ('professor_schedule',
-              'จ.OR / อ.OR / พ. 1–15 Laryngo,16–30 OR / พฤ.OPD / ศ. ไม่ต้อง — OR เฉพาะวันมีเคส');
+              'จ.OR / อ.OR / พ.OPD / พฤ.OPD / ศ. ไม่ต้อง — OR เฉพาะวันมีเคส');
 
 -- No credits, no orders, no fund entries: every balance is ฿0.

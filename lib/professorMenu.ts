@@ -61,7 +61,7 @@ export type ScheduleHint = {
 
 /**
  * Suggested location from อ.ไพบูลย์'s weekly schedule (a hint only — the order
- * person always confirms). จ.OR อ.OR พ.(1–15 Laryngo/16+ OR) พฤ.OPD ศ.ไม่ต้อง.
+ * person always confirms). จ.OR อ.OR พ.OPD พฤ.OPD ศ.ไม่ต้อง.
  */
 export function professorScheduleHint(iso: string): ScheduleHint {
   const [y, m, d] = iso.split("-").map(Number);
@@ -72,9 +72,7 @@ export function professorScheduleHint(iso: string): ScheduleHint {
     case 2:
       return { text: "อังคาร — ตามตาราง OR (เฉพาะวันมีเคส)", suggest: "OR" };
     case 3:
-      return d <= 15
-        ? { text: "พุธ (1–15) — Laryngo · ถ้าไม่ชัวร์สั่งทั้งสองที่", suggest: "BOTH" }
-        : { text: "พุธ (16–31) — ตามตาราง OR", suggest: "OR" };
+      return { text: "พุธ — ตามตาราง OPD", suggest: "OPD" };
     case 4:
       return { text: "พฤหัส — ตามตาราง OPD", suggest: "OPD" };
     case 5:
