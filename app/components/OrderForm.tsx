@@ -24,6 +24,15 @@ export function OrderForm({
   const [price, setPrice] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [highlightRandom, setHighlightRandom] = useState(false);
+
+  useEffect(() => {
+    // Introduce the new button for two weeks, then return to its normal style.
+    const highlightEnds = new Date("2026-10-18T00:00:00+07:00").getTime();
+    setHighlightRandom(Date.now() < highlightEnds);
+    const timer = setTimeout(() => setHighlightRandom(false), Math.max(0, highlightEnds - Date.now()));
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     setLocation(existing?.location ?? null);
@@ -144,9 +153,11 @@ export function OrderForm({
             setMenu(randomResidentMenu(menu));
             setPrice("");
           }}
-          className="text-xs font-medium text-brand disabled:opacity-50"
+          className={highlightRandom
+            ? "rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-50"
+            : "text-xs font-medium text-brand disabled:opacity-50"}
         >
-          🎲 สุ่มเมนู
+          🎲 สุ่มเมนู{highlightRandom ? " · ใหม่!" : ""}
         </button>
       </div>
       <input
